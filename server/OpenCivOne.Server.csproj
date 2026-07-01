@@ -8,27 +8,9 @@
     <RootNamespace>OpenCivOne</RootNamespace>
   </PropertyGroup>
 
-  <!-- OpenCivOne engine sources included directly.
-       Only OpenCivOneGame.cs is excluded (Window + SkiaSharp dependency)
-       — replaced by Engine/OpenCivOneGame.cs in this project.
-       Avalonia.Media.Color and Avalonia.Controls.Shapes are stubbed in Stubs/AvaloniaStubs.cs. -->
-  <ItemGroup>
-    <Compile Include="..\..\OpenCivOne\src\**\*.cs"
-             Exclude="..\..\OpenCivOne\src\App.axaml.cs;
-                      ..\..\OpenCivOne\src\Program.cs;
-                      ..\..\OpenCivOne\src\UI\EditBox.axaml.cs;
-                      ..\..\OpenCivOne\src\UI\LoadGameDialog.axaml.cs;
-                      ..\..\OpenCivOne\src\UI\MainWindow.axaml.cs;
-                      ..\..\OpenCivOne\src\UI\MessageBox\MessageBox.axaml.cs;
-                      ..\..\OpenCivOne\src\UI\MessageBox\MessageBoxResources.Designer.cs;
-                      ..\..\OpenCivOne\src\Game\OpenCivOneGame.cs" />
-  </ItemGroup>
-
-  <!-- OpenCivOne embedded resources (fonts, binary game data embedded in the assembly) -->
-  <ItemGroup>
-    <EmbeddedResource Include="..\..\OpenCivOne\src\Resources\CommonResources.resx">
-      <LogicalName>OpenCivOne.Resources.CommonResources.resources</LogicalName>
-    </EmbeddedResource>
-  </ItemGroup>
+  <!-- OpenCivOne engine sources (API, Game, Graphics, Helpers, IRB, Resources, UI, VirtualCPU)
+       live directly under this project and are picked up by the SDK's default *.cs / *.resx globbing.
+       Window-dependent files (Avalonia UI, App entry point) were never copied here — this project
+       uses Engine/OpenCivOneGame.cs instead, with Avalonia types stubbed in Stubs/. -->
 
 </Project>
