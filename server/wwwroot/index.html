@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Civilization I — reboot2</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="topbar">
+      <span id="turn-info">Turn 0</span>
+      <span id="year-info">4000 BC</span>
+      <span id="player-info"></span>
+    </div>
+
+    <div id="main">
+      <canvas id="map-canvas"></canvas>
+      <div id="sidebar">
+        <div id="unit-panel">
+          <h3>Active Unit</h3>
+          <div id="unit-info">—</div>
+          <div id="unit-actions">
+            <div id="numpad">
+              <button data-dir="7">↖</button><button data-dir="8">↑</button><button data-dir="9">↗</button>
+              <button data-dir="4">←</button><button data-dir="5">·</button><button data-dir="6">→</button>
+              <button data-dir="1">↙</button><button data-dir="2">↓</button><button data-dir="3">↘</button>
+            </div>
+            <div id="unit-cmds">
+              <button id="btn-fortify">Fortify (F)</button>
+              <button id="btn-sleep">Sleep (S)</button>
+              <button id="btn-found">Found City (B)</button>
+            </div>
+            <div id="settler-actions" style="display:none">
+              <button id="btn-irrigate">Irrigate (I)</button>
+              <button id="btn-mine">Mine (M)</button>
+              <button id="btn-road">Road/Railroad (R)</button>
+            </div>
+          </div>
+          <button id="btn-endturn">End Turn (Space)</button>
+          <button id="btn-reveal">Reveal Map</button>
+          <button id="btn-autoplay">▶ Auto-play</button>
+        </div>
+        <div id="city-panel">
+          <h3>Cities</h3>
+          <ul id="city-list"></ul>
+        </div>
+        <div id="status-panel">
+          <div id="status-msg">Connecting...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/renderer.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

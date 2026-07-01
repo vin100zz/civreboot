@@ -1,0 +1,181 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body, #app {
+  background: #1a1a1a;
+  color: #e0d0a0;
+  font-family: monospace;
+  font-size: 13px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#topbar {
+  background: #2a2010;
+  border-bottom: 2px solid #8b6914;
+  padding: 6px 12px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+#topbar span { font-weight: bold; }
+#btn-endturn {
+  width: 100%;
+  background: #4a3010;
+  color: #f0c040;
+  border: 1px solid #8b6914;
+  padding: 6px;
+  cursor: pointer;
+  font-family: monospace;
+  margin-top: 6px;
+}
+#btn-endturn:hover { background: #6a5020; }
+
+#main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+#map-canvas {
+  background: #001030;
+  cursor: crosshair;
+  flex: 1;
+  min-width: 0;
+}
+
+#sidebar {
+  width: 200px;
+  background: #111;
+  border-left: 2px solid #4a3010;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+#sidebar h3 {
+  color: #f0c040;
+  border-bottom: 1px solid #4a3010;
+  padding-bottom: 3px;
+  margin-bottom: 4px;
+}
+
+#unit-info { color: #a0e0a0; min-height: 40px; }
+
+#numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 36px);
+  gap: 3px;
+  margin: 6px 0;
+}
+#numpad button {
+  background: #2a2010;
+  color: #f0c040;
+  border: 1px solid #5a4020;
+  width: 36px; height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+  font-family: monospace;
+}
+#numpad button:hover { background: #4a3010; }
+#numpad button[data-dir="5"] { color: #808080; }
+
+#unit-cmds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 4px;
+}
+#unit-cmds button {
+  flex: 1;
+  min-width: 70px;
+  background: #1a2510;
+  color: #a0e080;
+  border: 1px solid #4a6030;
+  padding: 4px 2px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 11px;
+}
+#unit-cmds button:hover { background: #2a3a18; }
+
+#settler-actions {
+  display: none;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 4px;
+}
+#settler-actions button {
+  flex: 1;
+  min-width: 70px;
+  background: #101a30;
+  color: #80c0ff;
+  border: 1px solid #304870;
+  padding: 4px 2px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 11px;
+}
+#settler-actions button:hover { background: #1a2a40; }
+
+#btn-found {
+  width: 100%;
+  background: #1a3010;
+  color: #80e080;
+  border: 1px solid #4a8030;
+  padding: 4px;
+  cursor: pointer;
+  font-family: monospace;
+  margin-top: 4px;
+}
+#btn-found:hover { background: #2a5020; }
+
+#btn-reveal {
+  width: 100%;
+  background: #101830;
+  color: #80c0ff;
+  border: 1px solid #305080;
+  padding: 4px;
+  cursor: pointer;
+  font-family: monospace;
+  margin-top: 4px;
+}
+#btn-reveal:hover { background: #203050; }
+
+#btn-autoplay {
+  width: 100%;
+  background: #102010;
+  color: #80ff80;
+  border: 1px solid #308030;
+  padding: 4px;
+  cursor: pointer;
+  font-family: monospace;
+  margin-top: 4px;
+}
+#btn-autoplay:hover { background: #204020; }
+#btn-autoplay.active { background: #402010; color: #ffа040; border-color: #804020; }
+
+#city-list {
+  list-style: none;
+  font-size: 11px;
+}
+#city-list li {
+  padding: 2px 0;
+  border-bottom: 1px solid #2a2010;
+  color: #c0a060;
+}
+
+#status-panel {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid #4a3010;
+}
+#status-msg {
+  color: #808080;
+  font-size: 11px;
+  word-break: break-word;
+  white-space: pre-line;
+}

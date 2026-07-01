@@ -1,0 +1,42 @@
+# ── DOS / DOSBox binaries ────────────────────────────────────────────────────
+DOSBox.exe
+*.dll
+unins000.dat
+unins000.exe
+
+# ── Logs & runtime output ────────────────────────────────────────────────────
+stderr.txt
+stdout.txt
+*.log
+Log.txt
+VGADriverLog.txt
+
+# ── Ghidra project (binary, regenerable from scripts) ────────────────────────
+ghidra_project/
+
+# ── Decompilation logs (generated output; keep civ_decompiled.c & symbols.txt)
+decompiled/ghidra*.txt
+decompiled/ghidra*.log
+
+# ── .NET build artifacts (OpenCivOne & reboot2) ───────────────────────────────
+**/bin/
+**/obj/
+
+# ── IDE / editor ─────────────────────────────────────────────────────────────
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userprefs
+*.rsuser
+
+# ── OS noise ─────────────────────────────────────────────────────────────────
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# ── Misc build / tooling ─────────────────────────────────────────────────────
+*.tmp
+*.cache
+*.binlog

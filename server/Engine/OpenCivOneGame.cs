@@ -1,0 +1,408 @@
+// Server version of OpenCivOneGame — Window dependency removed
+using IRB.VirtualCPU;
+using OpenCivOne.API;
+using OpenCivOne.Graphics;
+using OpenCivOne.Resources;
+
+namespace OpenCivOne
+{
+    public partial class OpenCivOneGame
+    {
+        private static bool enableLog = false;
+
+        // Static field referenced by UnitGoTo, TerrainMap, etc.
+        public static readonly GPoint InvalidPosition = new GPoint(-1);
+
+        // Stub for TextBoxDialogs which opens Avalonia dialogs — server returns empty strings
+        public object? MainWindow => null;
+
+        private VCPU oCPU;
+
+        #region Segment definitions
+        private MainCode mainCode;
+        private CommonTools commonTools;
+        private Segment_1238 oSegment_1238;
+        private MenuBoxDialog menuBoxDialog;
+        private CheckPlayerTurn checkPlayerTurn;
+        private GameTools gameTools;
+        private DrawTools drawTools;
+        private ImageTools imageTools;
+        private LanguageTools languageTools;
+        private MapManagement mapManagement;
+        private UnitManagement unitManagement;
+        private UnitGoTo unitGoTo;
+        private Segment_2459 oSegment_2459;
+        private AIEngine aiEngine;
+        private Segment_1ade oSegment_1ade;
+        private CityWorker cityWorker;
+        private Segment_29f3 oSegment_29f3;
+        private Segment_2517 oSegment_2517;
+        private GameMenus gameMenus;
+        private MainIntro mainIntro;
+        private MeetWithKing meetWithKing;
+        private MapInitAndIntro mapInitAndIntro;
+        private Help help;
+        private GameLoadAndSave gameLoadAndSave;
+        private HallOfFame hallOfFame;
+        private StartGameMenu startGameMenu;
+        private TextBoxDialogs textBoxDialogs;
+        private Overlay_14 oOverlay_14;
+        private Encyclopedia encyclopedia;
+        private News news;
+        private CityView cityView;
+        private Overlay_18 oOverlay_18;
+        private Overlay_22 oOverlay_22;
+        private GameReplay gameReplay;
+        private WorldMap worldMap;
+        private Overlay_20 oOverlay_20;
+        private Palace palace;
+        private ShowDebugDetails showDebugDetails;
+        private Schizm schizm;
+        private CAPI CApi;
+        #endregion
+
+        private GameData gameData;
+        private GDriver graphics;
+        private NSound sound;
+
+        private string gameResourcePath = "";
+        private string gameMainPath = "";
+        private string gameSavePath = "";
+        private Queue<int> keys = new Queue<int>();
+
+        private ushort usStartSegment = 0x800;
+
+        private LogWrapper oLog;
+        private LogWrapper oInterruptLog;
+        private LogWrapper oGoToLog;
+
+        public static readonly object KeyboardAndMouseLock = new();
+        private MouseEvent lastMouseEvent = new MouseEvent(new GPoint(160, 100), MouseButtonsEnum.None);
+        private List<MouseEvent> mouseEvents = new List<MouseEvent>();
+
+        public OpenCivOneGame(string civGamePath)
+        {
+            this.oLog = new LogWrapper($"{VCPU.AssemblyPath}Log.txt", enableLog);
+            this.oInterruptLog = new LogWrapper($"{VCPU.AssemblyPath}InterruptLog.txt", enableLog);
+            this.oGoToLog = new LogWrapper($"{VCPU.AssemblyPath}GoToLog.txt", enableLog);
+
+            this.oCPU = new VCPU(this, this.oLog);
+
+            this.oLog.CPU = this.oCPU;
+            this.oInterruptLog.CPU = this.oCPU;
+            this.oGoToLog.CPU = this.oCPU;
+
+            this.gameData = new GameData();
+            this.gameResourcePath = civGamePath;
+
+            char sep = Path.DirectorySeparatorChar;
+            string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            this.gameMainPath = $"{userProfile}{sep}.opencivone{sep}";
+            this.gameSavePath = $"{userProfile}{sep}.opencivone{sep}Saved Games{sep}";
+
+            try
+            {
+                if (!Directory.Exists(this.gameMainPath)) Directory.CreateDirectory(this.gameMainPath);
+                if (!Directory.Exists(this.gameSavePath)) Directory.CreateDirectory(this.gameSavePath);
+            }
+            catch { }
+
+            #region Initialize Segments
+            this.CApi = new CAPI(this);
+            this.graphics = new GDriver(this);
+            this.sound = new NSound(this);
+
+            this.mainCode = new MainCode(this);
+            this.commonTools = new CommonTools(this);
+            this.oSegment_1238 = new Segment_1238(this);
+            this.menuBoxDialog = new MenuBoxDialog(this);
+            this.checkPlayerTurn = new CheckPlayerTurn(this);
+            this.gameTools = new GameTools(this);
+            this.drawTools = new DrawTools(this);
+            this.imageTools = new ImageTools(this);
+            this.languageTools = new LanguageTools(this);
+            this.mapManagement = new MapManagement(this);
+            this.unitManagement = new UnitManagement(this);
+            this.unitGoTo = new UnitGoTo(this);
+            this.oSegment_2459 = new Segment_2459(this);
+            this.aiEngine = new AIEngine(this);
+            this.oSegment_1ade = new Segment_1ade(this);
+            this.cityWorker = new CityWorker(this);
+            this.oSegment_29f3 = new Segment_29f3(this);
+            this.oSegment_2517 = new Segment_2517(this);
+            this.gameMenus = new GameMenus(this);
+            this.mainIntro = new MainIntro(this);
+            this.meetWithKing = new MeetWithKing(this);
+            this.mapInitAndIntro = new MapInitAndIntro(this);
+            this.help = new Help(this);
+            this.gameLoadAndSave = new GameLoadAndSave(this);
+            this.hallOfFame = new HallOfFame(this);
+            this.startGameMenu = new StartGameMenu(this);
+            this.textBoxDialogs = new TextBoxDialogs(this);
+            this.oOverlay_14 = new Overlay_14(this);
+            this.encyclopedia = new Encyclopedia(this);
+            this.news = new News(this);
+            this.cityView = new CityView(this);
+            this.oOverlay_18 = new Overlay_18(this);
+            this.oOverlay_22 = new Overlay_22(this);
+            this.gameReplay = new GameReplay(this);
+            this.worldMap = new WorldMap(this);
+            this.oOverlay_20 = new Overlay_20(this);
+            this.palace = new Palace(this);
+            this.showDebugDetails = new ShowDebugDetails(this);
+            this.schizm = new Schizm(this);
+            #endregion
+        }
+
+        public void Start()
+        {
+            if (!string.IsNullOrEmpty(this.gameResourcePath) && !Directory.Exists(this.gameResourcePath))
+                throw new ResourceMissingException($"Resource path not found at '{this.gameResourcePath}'.");
+
+            string[] aResourceFiles = new string[] {
+                "adscreen.pic", "arch.pic", "back0a.pic", "back0m.pic", "back1a.pic", "back1m.pic", "back2a.pic", "back2m.pic",
+                "back3a.pic", "birth0.pic", "birth1.pic", "birth2.pic", "birth3.pic", "birth4.pic", "birth5.pic", "birth6.pic",
+                "birth7.pic", "birth8.pic", "castle0.pic", "castle1.pic", "castle2.pic", "castle3.pic", "castle4.pic", "cback.pic",
+                "cbacks1.pic", "cbacks2.pic", "cbacks3.pic", "cbrush0.pic", "cbrush1.pic", "cbrush2.pic", "cbrush3.pic",
+                "cbrush4.pic", "cbrush5.pic", "civ.exe", "citypix1.pic", "citypix2.pic", "citypix3.pic", "custom.pic", "diffs.pic",
+                "discovr1.pic", "discovr2.pic", "docker.pic", "govt0a.pic", "govt0m.pic", "govt1a.pic", "govt1m.pic", "govt2a.pic",
+                "govt2m.pic", "govt3a.pic", "hill.pic", "iconpg1.pic", "iconpg2.pic", "iconpg3.pic", "iconpg4.pic", "iconpg5.pic",
+                "iconpg6.pic", "iconpg7.pic", "iconpg8.pic", "iconpga.pic", "iconpgb.pic", "iconpgc.pic", "iconpgd.pic",
+                "iconpge.pic", "iconpgt1.pic", "iconpgt2.pic", "invader2.pic", "invader3.pic", "invaders.pic", "king00.pic",
+                "king01.pic", "king02.pic", "king03.pic", "king04.pic", "king05.pic", "king06.pic", "king07.pic", "king08.pic",
+                "king09.pic", "king10.pic", "king11.pic", "king12.pic", "king13.pic", "kink00.pic", "kink03.pic", "logo.pic",
+                "love1.pic", "love2.pic", "map.pic", "nuke1.pic", "planet1.pic", "planet2.pic", "pop.pic", "riot.pic", "riot2.pic",
+                "sad.pic", "settlers.pic", "slag2.pic", "slam1.pic", "slam2.pic", "sp257.pic", "sp299.pic", "spacest.pic",
+                "sprites.pic", "ter257.pic", "torch.pic", "wonders.pic", "wonders2.pic", "back0a.pal", "back0m.pal", "back1a.pal",
+                "back1m.pal", "back2a.pal", "back2m.pal", "back3a.pal", "birth0.pal", "birth1.pal", "birth2.pal", "birth3.pal",
+                "birth4.pal", "birth5.pal", "birth6.pal", "birth7.pal", "birth8.pal", "discovr1.pal", "discovr2.pal", "hill.pal",
+                "iconpg1.pal", "iconpga.pal", "king00.pal", "king01.pal", "king02.pal", "king03.pal", "king04.pal", "king05.pal",
+                "king06.pal", "king07.pal", "king08.pal", "king09.pal", "king10.pal", "king11.pal", "king12.pal", "king13.pal",
+                "slam1.pal", "sp256.pal", "sp257.pal", "blurb0.txt", "blurb1.txt", "blurb2.txt", "blurb3.txt", "blurb4.txt",
+                "credits.txt", "error.txt", "help.txt", "intro.txt", "intro3.txt", "king.txt", "produce.txt", "story.txt"
+            };
+
+            for (int i = 0; i < aResourceFiles.Length; i++)
+            {
+                string sFilePath = $"{this.gameResourcePath}{aResourceFiles[i].ToUpper()}";
+                if (!File.Exists(sFilePath))
+                    throw new ResourceMissingException($"Missing resource file {sFilePath}.");
+            }
+
+            ushort usInitialSS = 0x398d;
+            ushort usInitialSP = 0x0800;
+
+            this.oCPU.Memory.AllocateMemoryBlock(0xff00, 0x100, VCPUMemoryFlagsEnum.ReadWrite);
+            this.oCPU.Memory.WriteUInt16(0xff00, 0x20cd);
+            this.oCPU.Memory.WriteUInt16(0xff02, (ushort)(this.oCPU.Memory.FreeMemory.End >> 4));
+            this.oCPU.Memory.WriteUInt8(0xff81, (byte)'\r');
+            this.oCPU.Memory.MemoryRegions[1].AccessFlags = VCPUMemoryFlagsEnum.ReadWrite | VCPUMemoryFlagsEnum.WriteWarning | VCPUMemoryFlagsEnum.ReadWarning;
+
+            uint uiEXEStart = VCPU.ToLinearAddress(usStartSegment, 0);
+            uint uiEXELength = 0x3a0e0;
+
+            byte[] resources = CommonResources.BinaryResources;
+
+            this.oCPU.Memory.AllocateMemoryBlock(uiEXEStart, uiEXELength, VCPUMemoryFlagsEnum.ReadWrite);
+            this.oCPU.Memory.WriteBlock(VCPU.ToLinearAddress(0x35cf, 0), resources, 0, resources.Length);
+            this.oCPU.Memory.MemoryRegions[2].AccessFlags |= VCPUMemoryFlagsEnum.WriteWarning;
+
+            uint uiDataStart = uiEXEStart + VCPU.ToLinearAddress(0x25cf, 0);
+            uint uiDataEnd = uiEXEStart + VCPU.ToLinearAddress(0x2b01, 0xf0c0);
+
+            this.oCPU.Memory.MemoryRegions[2].End = uiDataStart - 1;
+            this.oCPU.Memory.MemoryRegions.Add(
+                new VCPUMemoryRegion(uiDataStart, (uiDataEnd - uiDataStart) + 1, VCPUMemoryFlagsEnum.ReadWrite));
+
+            this.oCPU.SS.UInt16 = (ushort)(usInitialSS + usStartSegment);
+            this.oCPU.DS.UInt16 = (ushort)(usStartSegment - 0x10);
+            this.oCPU.ES.UInt16 = (ushort)(usStartSegment - 0x10);
+            this.oCPU.SP.UInt16 = usInitialSP;
+
+            ushort usDataSegment = 0x3b01;
+
+            this.oCPU.PUSH_UInt16(this.oCPU.DS.UInt16);
+            this.oCPU.DS.UInt16 = 0x3b01;
+
+            string sPath = $"{this.gameResourcePath}CIV.EXE";
+            this.oCPU.WriteUInt8(this.oCPU.DS.UInt16, 0x61ee, (byte)'C');
+            this.oCPU.WriteString(VCPU.ToLinearAddress(this.oCPU.DS.UInt16, 0x6156), sPath, sPath.Length);
+
+            this.oCPU.DS.UInt16 = this.oCPU.POP_UInt16();
+            this.oCPU.ES.UInt16 = this.oCPU.DS.UInt16;
+
+            this.oCPU.SI.UInt16 = (ushort)(this.oCPU.Memory.FreeMemory.End >> 4);
+            this.oCPU.SI.UInt16 = this.oCPU.SUB_UInt16(this.oCPU.SI.UInt16, usDataSegment);
+
+            this.oCPU.CLI();
+            this.oCPU.SS.UInt16 = usDataSegment;
+            this.oCPU.SP.UInt16 = this.oCPU.ADD_UInt16(this.oCPU.SP.UInt16, 0xe8c0);
+            this.oCPU.STI();
+
+            this.oCPU.SP.UInt16 = this.oCPU.AND_UInt16(this.oCPU.SP.UInt16, 0xfffe);
+            this.oCPU.WriteUInt16(this.oCPU.SS.UInt16, 0x5890, this.oCPU.SP.UInt16);
+            this.oCPU.WriteUInt16(this.oCPU.SS.UInt16, 0x588c, this.oCPU.SP.UInt16);
+
+            this.oCPU.AX.UInt16 = this.oCPU.SI.UInt16;
+            this.oCPU.AX.UInt16 = this.oCPU.SHL_UInt16(this.oCPU.AX.UInt16, 4);
+            this.oCPU.AX.UInt16 = this.oCPU.DEC_UInt16(this.oCPU.AX.UInt16);
+            this.oCPU.WriteUInt16(this.oCPU.SS.UInt16, 0x588a, this.oCPU.AX.UInt16);
+
+            this.oCPU.SI.UInt16 = this.oCPU.ADD_UInt16(this.oCPU.SI.UInt16, usDataSegment);
+            this.oCPU.BX.UInt16 = this.oCPU.ES.UInt16;
+            this.oCPU.BX.UInt16 = this.oCPU.SUB_UInt16(this.oCPU.BX.UInt16, this.oCPU.SI.UInt16);
+            this.oCPU.BX.UInt16 = this.oCPU.NEG_UInt16(this.oCPU.BX.UInt16);
+            if (this.oCPU.Memory.ResizeMemoryBlock(this.oCPU.ES.UInt16, this.oCPU.BX.UInt16))
+            {
+                this.oCPU.Flags.C = false;
+                this.oCPU.AX.UInt16 = 0;
+            }
+            else
+            {
+                this.oCPU.Flags.C = true;
+                this.oCPU.AX.UInt16 = 8;
+                this.oCPU.BX.UInt16 = 0;
+            }
+
+            this.oCPU.WriteUInt16(this.oCPU.SS.UInt16, 0x5901, this.oCPU.DS.UInt16);
+            this.oCPU.ES.UInt16 = this.oCPU.SS.UInt16;
+            this.oCPU.DS.UInt16 = this.oCPU.SS.UInt16;
+
+            for (int i = 0x652e; i < this.oCPU.SP.UInt16; i++)
+            {
+                if (i < 0x70ec && i > 0x70ec + 0xdff)
+                    this.oCPU.WriteUInt8(usDataSegment, (ushort)i, 0);
+            }
+
+            this.oCPU.WriteUInt16(this.oCPU.DS.UInt16, 0x5903, 0x616);
+            this.oCPU.WriteUInt16(this.oCPU.DS.UInt16, 0x5922, 0);
+            this.oCPU.WriteUInt16(this.oCPU.DS.UInt16, 0x5920, 0);
+            this.oCPU.WriteUInt16(this.oCPU.DS.UInt16, 0x591e, 0);
+
+            this.oCPU.BP.UInt16 = 0x0;
+
+            this.MainCode.F0_11a8_0008_Main();
+            this.CAPI.exit(0);
+        }
+
+        public MouseEvent PeekMouseEvent()
+        {
+            this.oCPU.DoEvents();
+            lock (OpenCivOneGame.KeyboardAndMouseLock)
+            {
+                if (this.mouseEvents.Count > 0)
+                {
+                    MouseEvent mouseEvent = this.mouseEvents[0];
+                    if (mouseEvent.Buttons == MouseButtonsEnum.None)
+                    {
+                        this.mouseEvents.RemoveAt(0);
+                        this.lastMouseEvent = mouseEvent;
+                    }
+                    return mouseEvent;
+                }
+                return this.lastMouseEvent;
+            }
+        }
+
+        public MouseEvent GetMouseEvent()
+        {
+            this.oCPU.DoEvents();
+            lock (OpenCivOneGame.KeyboardAndMouseLock)
+            {
+                if (this.mouseEvents.Count > 0)
+                {
+                    MouseEvent mouseEvent = this.mouseEvents[0];
+                    this.mouseEvents.RemoveAt(0);
+                    this.lastMouseEvent = mouseEvent;
+                    return mouseEvent;
+                }
+                return this.lastMouseEvent;
+            }
+        }
+
+        public void EmptyMouseEvents()
+        {
+            lock (OpenCivOneGame.KeyboardAndMouseLock)
+            {
+                if (this.mouseEvents.Count > 0)
+                    this.lastMouseEvent = this.mouseEvents[this.mouseEvents.Count - 1];
+                this.mouseEvents.Clear();
+            }
+            if (this.lastMouseEvent.Buttons != MouseButtonsEnum.None)
+            {
+                MouseEvent mouseEvent;
+                while ((mouseEvent = this.GetMouseEvent()).Buttons != MouseButtonsEnum.None) { Thread.Sleep(1); }
+            }
+        }
+
+        public VCPU CPU { get => this.oCPU; }
+        public GameData GameData { get => this.gameData; }
+        public string ResourcePath { get => this.gameResourcePath; }
+        public string MainPath { get => this.gameMainPath; }
+        public string SavePath { get => this.gameSavePath; }
+        public Queue<int> Keys { get { return this.keys; } }
+        public List<MouseEvent> MouseEvents { get { return this.mouseEvents; } }
+
+        #region Logs
+        public LogWrapper Log { get { return this.oLog; } }
+        public LogWrapper InterruptLog { get { return this.oInterruptLog; } }
+        public LogWrapper GoToLog { get { return this.oGoToLog; } }
+
+        public static void LogUnit(OpenCivOneGame game, LogWrapper log, int playerID, int unitID, int humanPlayerID)
+        {
+            if (playerID >= game.GameData.Players.Length || unitID >= game.GameData.Players[playerID].Units.Length)
+                log.WriteLine($"// Illegal indexes, PlayerID: {playerID}, UnitID: {unitID}");
+            else
+            {
+                Unit unit = game.GameData.Players[playerID].Units[unitID];
+                log.WriteLine($"// Player[{playerID}].Unit[{unitID}] = {{TypeID: {unit.UnitType}, Status: {unit.Status}, Position: {unit.Position}, GoTo: {unit.GoToDestination}}}");
+            }
+        }
+        #endregion
+
+        #region Public Segment getters
+        public MainCode MainCode { get { return this.mainCode; } }
+        public CommonTools CommonTools { get { return this.commonTools; } }
+        public Segment_1238 Segment_1238 { get { return this.oSegment_1238; } }
+        public MenuBoxDialog MenuBoxDialog { get { return this.menuBoxDialog; } }
+        public CheckPlayerTurn CheckPlayerTurn { get { return this.checkPlayerTurn; } }
+        public GameTools GameTools { get { return this.gameTools; } }
+        public DrawTools DrawTools { get { return this.drawTools; } }
+        public ImageTools ImageTools { get { return this.imageTools; } }
+        public LanguageTools LanguageTools { get { return this.languageTools; } }
+        public MapManagement MapManagement { get { return this.mapManagement; } }
+        public UnitManagement UnitManagement { get { return this.unitManagement; } }
+        public UnitGoTo UnitGoTo { get { return this.unitGoTo; } }
+        public Segment_2459 Segment_2459 { get { return this.oSegment_2459; } }
+        public AIEngine AIEngine { get { return this.aiEngine; } }
+        public Segment_1ade Segment_1ade { get { return this.oSegment_1ade; } }
+        public CityWorker CityWorker { get { return this.cityWorker; } }
+        public Segment_29f3 Segment_29f3 { get { return this.oSegment_29f3; } }
+        public Segment_2517 Segment_2517 { get { return this.oSegment_2517; } }
+        public GameMenus GameMenus { get { return this.gameMenus; } }
+        public MainIntro MainIntro { get { return this.mainIntro; } }
+        public MeetWithKing MeetWithKing { get { return this.meetWithKing; } }
+        public MapInitAndIntro MapInitAndIntro { get { return this.mapInitAndIntro; } }
+        public Help Help { get { return this.help; } }
+        public GameLoadAndSave GameLoadAndSave { get { return this.gameLoadAndSave; } }
+        public HallOfFame HallOfFame { get { return this.hallOfFame; } }
+        public StartGameMenu StartGameMenu { get { return this.startGameMenu; } }
+        public TextBoxDialogs TextBoxDialogs { get { return this.textBoxDialogs; } }
+        public Overlay_14 Overlay_14 { get { return this.oOverlay_14; } }
+        public Encyclopedia Encyclopedia { get { return this.encyclopedia; } }
+        public News News { get { return this.news; } }
+        public CityView CityView { get { return this.cityView; } }
+        public Overlay_18 Overlay_18 { get { return this.oOverlay_18; } }
+        public Overlay_22 Overlay_22 { get { return this.oOverlay_22; } }
+        public GameReplay GameReplay { get { return this.gameReplay; } }
+        public WorldMap WorldMap { get { return this.worldMap; } }
+        public Overlay_20 Overlay_20 { get { return this.oOverlay_20; } }
+        public Palace Palace { get { return this.palace; } }
+        public ShowDebugDetails ShowDebugDetails { get { return this.showDebugDetails; } }
+        public Schizm Schizm { get { return this.schizm; } }
+        public CAPI CAPI { get { return this.CApi; } }
+        public GDriver Graphics { get { return this.graphics; } }
+        public NSound Sound { get { return this.sound; } }
+        #endregion
+    }
+}
