@@ -19,7 +19,7 @@ namespace OpenCivOne.Server
             {
                 try { _game.Start(); }
                 catch (ApplicationExitException) { }
-                catch (Exception ex) { Console.Error.WriteLine($"[Game] {ex.Message}"); }
+                catch (Exception ex) { Console.Error.WriteLine($"[Game] {ex}"); }
             })
             { IsBackground = true, Name = "GameEngine" };
 

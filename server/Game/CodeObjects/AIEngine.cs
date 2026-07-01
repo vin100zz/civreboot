@@ -1790,7 +1790,7 @@ namespace OpenCivOne
 									{
 										direction = this.parent.MoveDirections[i];
 
-										newX = unitX + (direction.X * 4);
+										newX = this.parent.MapManagement.AdjustXPosition(unitX + (direction.X * 4));
 										newY = unitY + (direction.Y * 4);
 
 										if (this.parent.MapManagement.F0_2aea_1326_ValidateMapCoordinates(newX, newY) &&
