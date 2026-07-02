@@ -1,7 +1,14 @@
 using System.Text.Json;
 using OpenCivOne.Server;
 
-var builder = WebApplication.CreateBuilder(args);
+// Client lives at reboot2/client, a sibling of this project's directory
+// (not "wwwroot") — resolved relative to the content root, same as ASP.NET's
+// default wwwroot convention would be.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    WebRootPath = "../client",
+});
 builder.Services.AddSingleton<GameServer>();
 
 var app = builder.Build();
