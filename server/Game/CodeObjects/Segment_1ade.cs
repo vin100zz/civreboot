@@ -3080,7 +3080,10 @@ namespace OpenCivOne
 
 			for (int i = 1; i < 22; i++)
 			{
-				if (this.oParent.GameData.WonderCityID[i] != -1 &&
+				// WonderCityID holds 128 (an out-of-range sentinel, see the assignment in this
+				// same file around line 276) when a wonder's city was destroyed — same "no valid
+				// city" case as -1, but only -1 was checked here, so Cities[128] could throw.
+				if (this.oParent.GameData.WonderCityID[i] != -1 && this.oParent.GameData.WonderCityID[i] != 128 &&
 					this.oParent.GameData.Wonders[i].ObsoletesAfterTechnology == (TechnologyAdvanceEnum)technology)
 				{
 					if (this.oParent.GameData.Cities[this.oParent.GameData.WonderCityID[i]].PlayerID == this.oParent.GameData.HumanPlayerID)

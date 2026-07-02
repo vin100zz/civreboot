@@ -4168,7 +4168,12 @@ namespace OpenCivOne
 				}
 			}
 
+			// WonderCityID holds -1 when a wonder was never built, or 128 (an out-of-range
+			// sentinel, see Segment_1ade.cs) when its city was later destroyed — both mean
+			// "no valid city", but only -1 was checked here, so a destroyed wonder's city
+			// fell through to Cities[128], one past the end of the 128-entry array.
 			if (i < 8 || this.parent.GameData.WonderCityID[(int)wonderType] == -1 ||
+				this.parent.GameData.WonderCityID[(int)wonderType] == 128 ||
 				this.parent.GameData.Cities[this.parent.GameData.WonderCityID[(int)wonderType]].PlayerID != playerID)
 			{
 				return false;
