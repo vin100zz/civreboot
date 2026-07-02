@@ -49,7 +49,15 @@ namespace OpenCivOne.Server
                 for (int x = 0; x < 80; x++)
                 {
                     int terrain = (int)mm.GetTerrainType(x, y);
-                    int improvements = (int)mm.F0_2aea_15c1_GetTerrainImprovements(x, y);
+                    // Despite the names, F0_2aea_1585_GetVisibleTerrainImprovements is the raw/
+                    // ground-truth improvements layer (same storage SetTerrainImprovements writes
+                    // to), while F0_2aea_15c1_GetTerrainImprovements reads a separate "revealed to
+                    // player" copy that's only synced by F0_2aea_1601_UpdateVisibleCellStatus — a
+                    // call that's part of the original screen-drawing path and never happens in
+                    // this headless server, so that copy stays stale (basically always 0). Our own
+                    // fog-of-war is the "v" field below (tiles with v=0 aren't drawn client-side),
+                    // so reading the raw layer here is safe and actually reflects real improvements.
+                    int improvements = (int)mm.F0_2aea_1585_GetVisibleTerrainImprovements(x, y);
                     int visibility = (int)(gd.MapVisibility[x, y] & (1 << gd.HumanPlayerID));
 
                     tiles[y][x] = new

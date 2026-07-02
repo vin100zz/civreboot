@@ -4,8 +4,10 @@
 const BASE_TILE = 24;
 const MAP_W = 80;
 const MAP_H = 50;
+const ASSET_BASE = 'css/resources/';
 
-// Terrain colours — indices match TerrainTypeEnum in OpenCivOne
+// Terrain colours — used as a fallback while sprites are still loading.
+// Indices match TerrainTypeEnum in OpenCivOne.
 const TERRAIN_COLORS = [
   '#d4b870', // 0 = Desert
   '#c8a050', // 1 = Plains
@@ -33,6 +35,17 @@ const TERRAIN_COLORS = [
   '#4080c0', // 23 = ResourceRiver
 ];
 
+// Terrain sprite files, indices 0-11 match TerrainTypeEnum base terrain types.
+const TERRAIN_SPRITE_FILES = [
+  'desert.png', 'plains.png', 'grassland.png', 'forest.png', 'hills.png', 'mountains.png',
+  'tundra.png', 'arctic.png', 'swamp.png', 'jungle.png', 'ocean.png', 'river.png',
+];
+
+// Resource variants (12-23) reuse the visual of their underlying base terrain
+// (no dedicated resource artwork is provided) — same pairing as TERRAIN_COLORS above.
+const RESOURCE_TERRAIN_BASE = [0, 2, 2, 3, 5, 0, 3, 7, 10, 2, 10, 11];
+function terrainSpriteIndex(t) { return t >= 12 ? RESOURCE_TERRAIN_BASE[t - 12] : t; }
+
 // TerrainImprovementFlagsEnum
 const IMP_CITY      = 0x01;
 const IMP_IRRIG     = 0x02;
@@ -40,19 +53,63 @@ const IMP_MINE      = 0x04;
 const IMP_ROAD      = 0x08;
 const IMP_RAILROAD  = 0x10;
 const IMP_FORTRESS  = 0x20;
+const IMP_POLLUTION = 0x40;
+
+// UnitTypeEnum (0-27) -> sprite file
+const UNIT_SPRITE_FILES = [
+  'settler.png', 'militia.png', 'phalanx.png', 'legion.png', 'musketeer.png', 'riflemen.png',
+  'cavalry.png', 'knight.png', 'catapult.png', 'cannon.png', 'chariot.png', 'armor.png',
+  'mechinf.png', 'artillery.png', 'fighter.png', 'bomber.png', 'trireme.png', 'sail.png',
+  'frigate.png', 'ironclad.png', 'cruiser.png', 'battleship.png', 'submarine.png', 'carrier.png',
+  'transport.png', 'nuclear.png', 'diplomat.png', 'caravan.png',
+];
 
 // Civilization color by nationality string (case-insensitive prefix match).
 // Pairs share the same color.
 function getNationalityColor(nationality) {
   const n = (nationality || '').toLowerCase();
-  if (n.startsWith('russian') || n.startsWith('roman'))    return '#FFD700'; // yellow
+  if (n.startsWith('russian') || n.startsWith('roman'))    return '#FFAD14'; // yellow
   if (n.startsWith('indian')  || n.startsWith('mongol'))   return '#FFFFFF'; // white
-  if (n.startsWith('zulu')    || n.startsWith('babylon'))  return '#AAAAAA'; // grey
-  if (n.startsWith('chinese') || n.startsWith('american')) return '#FF80FF'; // pink/purple
-  if (n.startsWith('aztec')   || n.startsWith('egyptian')) return '#00E0E0'; // cyan
-  if (n.startsWith('french')  || n.startsWith('german'))   return '#9090FF'; // blue/lavender
-  if (n.startsWith('greek')   || n.startsWith('english'))  return '#80FF80'; // light green
-  return '#FF4040'; // fallback
+  if (n.startsWith('zulu')    || n.startsWith('babylon'))  return '#606060'; // grey
+  if (n.startsWith('chinese') || n.startsWith('american')) return '#D748D4'; // pink/purple
+  if (n.startsWith('aztec')   || n.startsWith('egyptian')) return '#32FFFF'; // cyan
+  if (n.startsWith('french')  || n.startsWith('german'))   return '#7C7CFF'; // blue/lavender
+  if (n.startsWith('greek')   || n.startsWith('english'))  return '#02BF02'; // light green
+  return '#FF0200'; // fallback
+}
+
+// --- Sprite loading -------------------------------------------------------
+// All sprites are loaded up front. Renders before an image finishes loading
+// fall back to flat colors/shapes (see render()); once each image loads we
+// trigger a redraw so it pops in.
+let _rendererForRedraw = null;
+function _requestRedraw() { if (_rendererForRedraw) _rendererForRedraw.render(); }
+
+function _loadImage(relPath) {
+  const img = new Image();
+  img.onload = _requestRedraw;
+  img.src = ASSET_BASE + relPath;
+  return img;
+}
+
+const TERRAIN_SPRITES = TERRAIN_SPRITE_FILES.map(f => _loadImage('terrain/' + f));
+const UNIT_SPRITES = UNIT_SPRITE_FILES.map(f => _loadImage('unit/' + f));
+const CITY_SPRITE = _loadImage('city/city.png');
+const CITY_WITH_UNIT_SPRITE = _loadImage('city/city_with_unit.png');
+const IMP_SPRITES = {
+  [IMP_IRRIG]:     _loadImage('terrain/irrigation.png'),
+  [IMP_MINE]:      _loadImage('terrain/mine.png'),
+  [IMP_ROAD]:      _loadImage('terrain/route.png'),
+  [IMP_RAILROAD]:  _loadImage('terrain/railroad.png'),
+  [IMP_POLLUTION]: _loadImage('terrain/pollution.png'),
+};
+
+function _drawSprite(ctx, img, x, y, w, h) {
+  if (img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, x, y, w, h);
+    return true;
+  }
+  return false;
 }
 
 class MapRenderer {
@@ -61,6 +118,7 @@ class MapRenderer {
     this.ctx = canvas.getContext('2d');
     this.state = null;
     this.playerColors = {}; // playerID -> hex color
+    _rendererForRedraw = this;
 
     // View is tracked as a pixel offset into the world (offsetX wraps around
     // the map's horizontal extent, offsetY is clamped — the map does not
@@ -175,42 +233,57 @@ class MapRenderer {
           continue;
         }
 
-        ctx.fillStyle = TERRAIN_COLORS[tile.t] ?? '#333';
-        ctx.fillRect(px, py, ts, ts);
+        const sprite = TERRAIN_SPRITES[terrainSpriteIndex(tile.t)];
+        if (!sprite || !_drawSprite(ctx, sprite, px, py, ts, ts)) {
+          ctx.fillStyle = TERRAIN_COLORS[tile.t] ?? '#333';
+          ctx.fillRect(px, py, ts, ts);
+        }
 
-        // --- Improvements ---
+        // --- Improvements (drawn as overlays on top of the terrain) ---
         const imp = tile.i;
 
-        // Railroad: thick brown cross
         if (imp & IMP_RAILROAD) {
-          ctx.fillStyle = '#604020';
-          ctx.fillRect(px + ts/2 - 2*s, py, 4*s, ts);
-          ctx.fillRect(px, py + ts/2 - 2*s, ts, 4*s);
-        }
-        // Road: thin tan cross
-        else if (imp & IMP_ROAD) {
-          ctx.fillStyle = '#a08040';
-          ctx.fillRect(px + ts/2 - 1*s, py, 2*s, ts);
-          ctx.fillRect(px, py + ts/2 - 1*s, ts, 2*s);
+          if (!_drawSprite(ctx, IMP_SPRITES[IMP_RAILROAD], px, py, ts, ts)) {
+            ctx.fillStyle = '#604020';
+            ctx.fillRect(px + ts/2 - 2*s, py, 4*s, ts);
+            ctx.fillRect(px, py + ts/2 - 2*s, ts, 4*s);
+          }
+        } else if (imp & IMP_ROAD) {
+          if (!_drawSprite(ctx, IMP_SPRITES[IMP_ROAD], px, py, ts, ts)) {
+            ctx.fillStyle = '#a08040';
+            ctx.fillRect(px + ts/2 - 1*s, py, 2*s, ts);
+            ctx.fillRect(px, py + ts/2 - 1*s, ts, 2*s);
+          }
         }
 
-        // Irrigation: blue border
         if (imp & IMP_IRRIG) {
-          ctx.strokeStyle = '#4080ff';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(px + 1.5, py + 1.5, ts - 3, ts - 3);
+          if (!_drawSprite(ctx, IMP_SPRITES[IMP_IRRIG], px, py, ts, ts)) {
+            ctx.strokeStyle = '#4080ff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(px + 1.5, py + 1.5, ts - 3, ts - 3);
+          }
         }
 
-        // Mine: dark grey dots (2×2 grid)
         if (imp & IMP_MINE) {
-          ctx.fillStyle = '#555';
-          ctx.fillRect(px + 4*s,  py + 4*s,  3*s, 3*s);
-          ctx.fillRect(px + 17*s, py + 4*s,  3*s, 3*s);
-          ctx.fillRect(px + 4*s,  py + 17*s, 3*s, 3*s);
-          ctx.fillRect(px + 17*s, py + 17*s, 3*s, 3*s);
+          if (!_drawSprite(ctx, IMP_SPRITES[IMP_MINE], px, py, ts, ts)) {
+            ctx.fillStyle = '#555';
+            ctx.fillRect(px + 4*s,  py + 4*s,  3*s, 3*s);
+            ctx.fillRect(px + 17*s, py + 4*s,  3*s, 3*s);
+            ctx.fillRect(px + 4*s,  py + 17*s, 3*s, 3*s);
+            ctx.fillRect(px + 17*s, py + 17*s, 3*s, 3*s);
+          }
         }
 
-        // Fortress: small yellow square outline
+        if (imp & IMP_POLLUTION) {
+          if (!_drawSprite(ctx, IMP_SPRITES[IMP_POLLUTION], px, py, ts, ts)) {
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.arc(px + ts/2, py + ts/2, ts/4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Fortress: small yellow square outline (no dedicated sprite provided)
         if (imp & IMP_FORTRESS) {
           ctx.strokeStyle = '#ffcc00';
           ctx.lineWidth = 2;
@@ -221,6 +294,7 @@ class MapRenderer {
 
     // --- Units (drawn before cities so cities appear on top) ---
     const drawnTiles = new Set();
+    const cityPositions = new Set((this.state.cities || []).map(c => `${c.x},${c.y}`));
 
     this.state.units?.forEach(unit => {
       const px = this._screenX(unit.x);
@@ -228,6 +302,7 @@ class MapRenderer {
       if (px < -ts || px > this.canvas.width || py < -ts || py > this.canvas.height) return;
       const tileRow = this.state.map?.tiles[unit.y];
       if (!tileRow || !tileRow[unit.x]?.v) return;
+      if (cityPositions.has(`${unit.x},${unit.y}`)) return; // cities render their own garrison sprite
 
       const key = `${unit.x},${unit.y}`;
       if (drawnTiles.has(key)) return;
@@ -244,27 +319,54 @@ class MapRenderer {
 
       const color = this._playerColor(unit.playerID);
 
-      ctx.fillStyle = color;
-      ctx.fillRect(px + 1*s, py + 1*s, ts - 2*s, ts - 2*s);
+      // Unit sprite, centered in the tile and scaled to fit while preserving
+      // its aspect ratio. The sprite's transparent pixels are replaced by a
+      // solid civilization-color backdrop (drawn first, sprite on top) —
+      // the sprite's own opaque pixels are left untouched, unfaded.
+      const sprite = UNIT_SPRITES[unit.type];
+      let drewSprite = false;
+      if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+        const boxW = ts - 4*s, boxH = ts - 4*s;
+        const scale = Math.min(boxW / sprite.naturalWidth, boxH / sprite.naturalHeight);
+        const dw = sprite.naturalWidth * scale, dh = sprite.naturalHeight * scale;
+        const dx = px + (ts - dw) / 2, dy = py + (ts - dh) / 2;
+        ctx.fillStyle = color;
+        ctx.fillRect(dx, dy, dw, dh);
+        ctx.drawImage(sprite, dx, dy, dw, dh);
+        drewSprite = true;
+      }
 
-      // Label — dark text on light colors, light text on dark colors
-      const isDark = _colorIsDark(color);
-      ctx.fillStyle = isDark ? '#eee' : '#000';
-      ctx.font = `bold ${Math.max(8, 10*s)}px monospace`;
+      if (!drewSprite) {
+        ctx.fillStyle = color;
+        ctx.fillRect(px + 1*s, py + 1*s, ts - 2*s, ts - 2*s);
+        const isDark = _colorIsDark(color);
+        ctx.fillStyle = isDark ? '#eee' : '#000';
+        ctx.font = `bold ${Math.max(8, 10*s)}px monospace`;
+        ctx.fillText((unit.name || '?')[0], px + 4*s, py + 11*s);
+      }
 
-      let label = (unit.name || '?')[0];
-      if (isFortified || isFortifying) label = 'F';
-      else if (isSleeping)   label = 'Z';
-      else if (isBuildFort)  label = 'f';
-      else if (isBuildIrr)   label = 'I';
-      else if (isBuildMine)  label = 'M';
-      else if (isBuildRoad)  label = 'R';
+      // Current action — big white letter overlay, outlined for legibility
+      // over any sprite/terrain.
+      let actionLabel = null;
+      if (isFortified || isFortifying) actionLabel = 'F';
+      else if (isSleeping)  actionLabel = 'Z';
+      else if (isBuildFort) actionLabel = 'F';
+      else if (isBuildIrr)  actionLabel = 'I';
+      else if (isBuildMine) actionLabel = 'M';
+      else if (isBuildRoad) actionLabel = 'R';
 
-      ctx.fillText(label, px + 4*s, py + 11*s);
-
-      // Small status dot bottom-right
-      if (isFortified) { ctx.fillStyle = '#fff'; ctx.fillRect(px + ts - 7*s, py + ts - 7*s, 4*s, 4*s); }
-      if (isSleeping)  { ctx.fillStyle = '#88f'; ctx.fillRect(px + ts - 7*s, py + ts - 7*s, 4*s, 4*s); }
+      if (actionLabel) {
+        ctx.font = `bold ${Math.max(16, 15*s)}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#000';
+        ctx.strokeText(actionLabel, px + ts/2, py + ts/2);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(actionLabel, px + ts/2, py + ts/2);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+      }
     });
 
     // --- Cities (drawn after units so they always appear on top) ---
@@ -277,23 +379,29 @@ class MapRenderer {
       ctx.fillStyle = color;
       ctx.fillRect(px + 2*s, py + 2*s, ts - 4*s, ts - 4*s);
 
+      const hasUnit = this.state.units?.some(u => u.x === city.x && u.y === city.y);
+      const sprite = hasUnit ? CITY_WITH_UNIT_SPRITE : CITY_SPRITE;
+      _drawSprite(ctx, sprite, px + 2*s, py + 2*s, ts - 4*s, ts - 4*s);
+
       // City size number — centered in the tile, both axes
-      const isDark = _colorIsDark(color);
-      ctx.fillStyle = isDark ? '#eee' : '#000';
-      ctx.font = `bold ${Math.max(18, 14*s)}px monospace`;
+      ctx.font = `bold ${Math.max(16, 14*s)}px monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(city.size, px + ts / 2, py + ts / 2);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#000';
+      ctx.strokeText(city.size, px + ts / 2, py + ts / 2 + 2);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(city.size, px + ts / 2, py + ts / 2 + 2);
 
       // City name below the tile — centered horizontally on the tile
       const name = city.name || '';
-      ctx.font = `bold ${Math.max(13, 8*s)}px monospace`;
+      ctx.font = `bold ${Math.max(16, 10*s)}px monospace`;
       ctx.fillStyle = '#fff';
       ctx.strokeStyle = '#000';
       ctx.lineWidth = 2;
       ctx.textBaseline = 'alphabetic';
-      ctx.strokeText(name, px + ts / 2, py + ts + 10*s);
-      ctx.fillText(name, px + ts / 2, py + ts + 10*s);
+      ctx.strokeText(name, px + ts / 2, py + ts + 7*s);
+      ctx.fillText(name, px + ts / 2, py + ts + 7*s);
 
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';

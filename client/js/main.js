@@ -236,6 +236,7 @@ function tileInfo(x, y) {
     if (tile.i & IMP_ROAD)     imps.push('Road');
     if (tile.i & IMP_RAILROAD) imps.push('Railroad');
     if (tile.i & IMP_FORTRESS) imps.push('Fortress');
+    if (tile.i & IMP_POLLUTION) imps.push('Pollution');
     lines.push(`(${x},${y}) ${tName}${imps.length ? ' | ' + imps.join(', ') : ''}`);
 
     // Cities
