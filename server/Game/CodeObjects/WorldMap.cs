@@ -610,6 +610,14 @@ namespace OpenCivOne
 			this.oCPU.CMP_UInt16(this.oCPU.AX.UInt16, this.oCPU.ReadUInt16(this.oCPU.SS.UInt16, (ushort)(this.oCPU.BP.UInt16 - 0xe)));
 			if (this.oCPU.Flags.LE) goto L06cf;
 
+			// Missing bound check in the decompilation: the equivalent loop at L073b
+			// (below, ~line 700) has this same "idx < 150" cap before indexing
+			// ScoreGraphData (a 150-slot-per-player ring buffer, 0x96 = 150). Without
+			// it, idx grows past 150 once TurnCount exceeds ~600 and the index below
+			// overflows the 1200-element array.
+			this.oCPU.CMP_UInt16(this.oCPU.ReadUInt16(this.oCPU.SS.UInt16, (ushort)(this.oCPU.BP.UInt16 - 0xe)), 0x96);
+			if (this.oCPU.Flags.GE) goto L06cf;
+
 			this.oCPU.BX.UInt16 = this.oCPU.ReadUInt16(this.oCPU.SS.UInt16, (ushort)(this.oCPU.BP.UInt16 - 0xe));
 			this.oCPU.CX.LowUInt8 = 0x3;
 			this.oCPU.BX.UInt16 = this.oCPU.SHL_UInt16(this.oCPU.BX.UInt16, this.oCPU.CX.LowUInt8);
