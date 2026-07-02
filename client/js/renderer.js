@@ -277,20 +277,26 @@ class MapRenderer {
       ctx.fillStyle = color;
       ctx.fillRect(px + 2*s, py + 2*s, ts - 4*s, ts - 4*s);
 
-      // City size number
+      // City size number — centered in the tile, both axes
       const isDark = _colorIsDark(color);
       ctx.fillStyle = isDark ? '#eee' : '#000';
-      ctx.font = `${Math.max(7, 9*s)}px monospace`;
-      ctx.fillText(city.size, px + 5*s, py + 12*s);
+      ctx.font = `bold ${Math.max(18, 14*s)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(city.size, px + ts / 2, py + ts / 2);
 
-      // City name below the tile
+      // City name below the tile — centered horizontally on the tile
       const name = city.name || '';
-      ctx.font = `${Math.max(6, 7*s)}px monospace`;
+      ctx.font = `bold ${Math.max(13, 8*s)}px monospace`;
       ctx.fillStyle = '#fff';
       ctx.strokeStyle = '#000';
       ctx.lineWidth = 2;
-      ctx.strokeText(name, px + 1*s, py + ts + 8*s);
-      ctx.fillText(name, px + 1*s, py + ts + 8*s);
+      ctx.textBaseline = 'alphabetic';
+      ctx.strokeText(name, px + ts / 2, py + ts + 10*s);
+      ctx.fillText(name, px + ts / 2, py + ts + 10*s);
+
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
     });
 
     // --- Highlight active human unit ---
