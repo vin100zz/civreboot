@@ -103,6 +103,17 @@ namespace OpenCivOne
 
 			unit.GoToNextDirection = -1;
 
+			// Already arrived (or destination is otherwise invalid): clear the stale GoTo so the
+			// unit gets re-evaluated fresh next turn. Without this, GoToDestination is only ever
+			// cleared on pathfinding failure — a unit that successfully reaches its destination
+			// keeps GoToDestination == Position forever, which short-circuits this whole method
+			// (the condition below is false) and permanently blocks any further movement/decisions.
+			if (this.parent.MapManagement.F0_2aea_1326_ValidateMapCoordinates(unit.GoToDestination) && unit.Position == unit.GoToDestination)
+			{
+				unit.GoToDestination = OpenCivOneGame.InvalidPosition;
+				unit.GoToPath.Clear();
+			}
+
 			if (this.parent.MapManagement.F0_2aea_1326_ValidateMapCoordinates(unit.GoToDestination) && unit.Position != unit.GoToDestination)
 			{
 				if (unit.GoToPath.Count == 0)

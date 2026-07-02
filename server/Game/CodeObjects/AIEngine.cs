@@ -1286,10 +1286,14 @@ namespace OpenCivOne
 										// Instruction address 0x25fb:0x2088, size: 5
 										TerrainImprovementFlagsEnum terrainImprovements = this.parent.MapManagement.F0_2aea_1585_GetVisibleTerrainImprovements(unitX, unitY);
 
-										if ((terrainImprovements & (TerrainImprovementFlagsEnum.Irrigation | TerrainImprovementFlagsEnum.Mines)) != TerrainImprovementFlagsEnum.None ||
-											(terrainImprovements & TerrainImprovementFlagsEnum.Road) != TerrainImprovementFlagsEnum.Road &&
+										// A road is only useful if there isn't one already — without this, once a tile
+										// has irrigation/mines (permanent), this condition stays true forever regardless
+										// of road status, and the settler keeps "building" an already-finished road
+										// instead of ever moving on (e.g. to found a new city).
+										if ((terrainImprovements & TerrainImprovementFlagsEnum.Road) != TerrainImprovementFlagsEnum.Road &&
+											((terrainImprovements & (TerrainImprovementFlagsEnum.Irrigation | TerrainImprovementFlagsEnum.Mines)) != TerrainImprovementFlagsEnum.None ||
 											(terrainType == TerrainTypeEnum.Invalid || terrainType == TerrainTypeEnum.Desert ||
-												terrainType == TerrainTypeEnum.Plains || terrainType == TerrainTypeEnum.Grassland))
+												terrainType == TerrainTypeEnum.Plains || terrainType == TerrainTypeEnum.Grassland)))
 										{
 											unit.GoToDestination.X = -1;
 
@@ -1362,8 +1366,11 @@ namespace OpenCivOne
 							}
 						}
 
+						// Same missing-parentheses class of bug as above: a road is only useful if there
+						// isn't one already. "HasTechnology(BridgeBuilding)" should only waive the
+						// river restriction, not the "no road yet" check itself.
 						if ((this.parent.MapManagement.F0_2aea_1585_GetVisibleTerrainImprovements(unitX, unitY) & TerrainImprovementFlagsEnum.Road) != TerrainImprovementFlagsEnum.Road &&
-							terrainType != TerrainTypeEnum.River || this.parent.Segment_1ade.F0_1ade_22b5_PlayerHasTechnology(playerID, TechnologyAdvanceEnum.BridgeBuilding))
+							(terrainType != TerrainTypeEnum.River || this.parent.Segment_1ade.F0_1ade_22b5_PlayerHasTechnology(playerID, TechnologyAdvanceEnum.BridgeBuilding)))
 						{
 							if (((nearestCityID < 128) ? this.parent.GameData.Cities[nearestCityID].PlayerID : -1) == playerID)
 							{
@@ -1489,7 +1496,7 @@ namespace OpenCivOne
 					{
 						return 'b';
 					}
-				
+
 					if (this.parent.GameData.Cities[nearestCityID].PlayerID == playerID && this.parent.GameData.Cities[nearestCityID].ActualSize < 10)
 					{
 						unit.GoToDestination.X = this.parent.GameData.Cities[nearestCityID].Position.X;
