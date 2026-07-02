@@ -5,9 +5,7 @@ const canvas  = document.getElementById('map-canvas');
 function resizeCanvas() {
   canvas.width  = canvas.offsetWidth;
   canvas.height = canvas.offsetHeight;
-  renderer.tilesX = Math.floor(canvas.width  / 16);
-  renderer.tilesY = Math.floor(canvas.height / 16);
-  renderer.render();
+  renderer.resize();
 }
 
 const renderer = new MapRenderer(canvas);
@@ -263,6 +261,7 @@ function tileInfo(x, y) {
 }
 
 canvas.addEventListener('click', e => {
+    if (renderer.consumeDragFlag()) return; // ignore click-to-inspect after a map drag
     const tile = renderer.clickToTile(e.clientX, e.clientY);
     tileInfo(tile.x, tile.y);
 });

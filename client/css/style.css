@@ -40,7 +40,7 @@ body, #app {
 
 #map-canvas {
   background: #001030;
-  cursor: crosshair;
+  cursor: grab;
   flex: 1;
   min-width: 0;
 }

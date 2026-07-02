@@ -1,8 +1,7 @@
 // Map renderer — draws terrain tiles and units on the canvas
 'use strict';
 
-const TILE_W = 24;
-const TILE_H = 24;
+const BASE_TILE = 24;
 const MAP_W = 80;
 const MAP_H = 50;
 
@@ -61,11 +60,36 @@ class MapRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.state = null;
-    this.viewX = 0;
-    this.viewY = 0;
-    this.tilesX = Math.floor(canvas.width / TILE_W);
-    this.tilesY = Math.floor(canvas.height / TILE_H);
     this.playerColors = {}; // playerID -> hex color
+
+    // View is tracked as a pixel offset into the world (offsetX wraps around
+    // the map's horizontal extent, offsetY is clamped — the map does not
+    // wrap vertically).
+    this.tileSize = BASE_TILE;
+    this.minTileSize = BASE_TILE;
+    this.maxTileSize = BASE_TILE * 4;
+    this.offsetX = 0;
+    this.offsetY = 0;
+    this._centered = false;
+
+    this._dragging = false;
+    this._dragMoved = false;
+    this._dragLastX = 0;
+    this._dragLastY = 0;
+
+    this._bindInteraction();
+    this.resize();
+  }
+
+  // Recompute zoom bounds from the current canvas size. Call after the
+  // canvas has been resized. At the minimum zoom level the whole map width
+  // (80 tiles) exactly fills the canvas width.
+  resize() {
+    this.minTileSize = this.canvas.width / MAP_W;
+    this.maxTileSize = Math.max(BASE_TILE * 4, this.minTileSize * 3);
+    this.tileSize = Math.max(this.minTileSize, Math.min(this.maxTileSize, this.tileSize));
+    this._normalizeOffsets();
+    this.render();
   }
 
   setState(state) {
@@ -77,11 +101,16 @@ class MapRenderer {
       this.playerColors[p.id] = getNationalityColor(p.nationality);
     });
 
-    if (state && state.map) {
+    // Center the view on the human player's active unit, but only the very
+    // first time we receive map data — after that the player controls the
+    // view via drag/zoom and we must not snap it back on every state poll.
+    if (!this._centered && state && state.map) {
       const human = state.units?.find(u => u.playerID === state.humanPlayerID);
       if (human) {
-        this.viewX = Math.max(0, human.x - Math.floor(this.tilesX / 2));
-        this.viewY = Math.max(0, human.y - Math.floor(this.tilesY / 2));
+        this.offsetX = human.x * this.tileSize - this.canvas.width / 2;
+        this.offsetY = human.y * this.tileSize - this.canvas.height / 2;
+        this._normalizeOffsets();
+        this._centered = true;
       }
     }
     this.render();
@@ -91,30 +120,63 @@ class MapRenderer {
     return this.playerColors[playerID] ?? '#FF4040';
   }
 
+  _normalizeOffsets() {
+    const mapPxW = MAP_W * this.tileSize;
+    this.offsetX = ((this.offsetX % mapPxW) + mapPxW) % mapPxW;
+    const maxOffsetY = Math.max(0, MAP_H * this.tileSize - this.canvas.height);
+    this.offsetY = Math.min(maxOffsetY, Math.max(0, this.offsetY));
+  }
+
+  // Converts a world tile coordinate to a screen-pixel coordinate, choosing
+  // whichever wrap of the (horizontally toroidal) map lands on screen.
+  _screenX(wx) {
+    const ts = this.tileSize;
+    const mapPxW = MAP_W * ts;
+    let dx = ((wx * ts - this.offsetX) % mapPxW + mapPxW) % mapPxW;
+    if (dx > this.canvas.width && dx - mapPxW >= -ts) dx -= mapPxW;
+    return dx;
+  }
+
+  _screenY(wy) {
+    return wy * this.tileSize - this.offsetY;
+  }
+
   render() {
     if (!this.state?.map) return;
     const ctx = this.ctx;
     const { tiles } = this.state.map;
+    const ts = this.tileSize;
+    const s = ts / BASE_TILE; // scale factor for decorations drawn at fixed sizes
+
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     // --- Terrain ---
-    for (let ty = 0; ty < this.tilesY; ty++) {
-      for (let tx = 0; tx < this.tilesX; tx++) {
-        const mx = (this.viewX + tx) % MAP_W;
-        const my = this.viewY + ty;
-        if (my < 0 || my >= MAP_H) continue;
+    const startTileX = Math.floor(this.offsetX / ts);
+    const fracX = this.offsetX - startTileX * ts;
+    const startTileY = Math.floor(this.offsetY / ts);
+    const fracY = this.offsetY - startTileY * ts;
+    const numCols = Math.ceil((this.canvas.width + fracX) / ts) + 1;
+    const numRows = Math.ceil((this.canvas.height + fracY) / ts) + 1;
+
+    for (let row = 0; row < numRows; row++) {
+      const my = startTileY + row;
+      if (my < 0 || my >= MAP_H) continue;
+      const py = row * ts - fracY;
+
+      for (let col = 0; col < numCols; col++) {
+        const mx = ((startTileX + col) % MAP_W + MAP_W) % MAP_W;
+        const px = col * ts - fracX;
 
         const tile = tiles[my]?.[mx];
-        const px = tx * TILE_W;
-        const py = ty * TILE_H;
 
         if (!tile || tile.v === 0) {
           ctx.fillStyle = '#000';
-          ctx.fillRect(px, py, TILE_W, TILE_H);
+          ctx.fillRect(px, py, ts, ts);
           continue;
         }
 
         ctx.fillStyle = TERRAIN_COLORS[tile.t] ?? '#333';
-        ctx.fillRect(px, py, TILE_W, TILE_H);
+        ctx.fillRect(px, py, ts, ts);
 
         // --- Improvements ---
         const imp = tile.i;
@@ -122,37 +184,37 @@ class MapRenderer {
         // Railroad: thick brown cross
         if (imp & IMP_RAILROAD) {
           ctx.fillStyle = '#604020';
-          ctx.fillRect(px + TILE_W/2 - 2, py, 4, TILE_H);
-          ctx.fillRect(px, py + TILE_H/2 - 2, TILE_W, 4);
+          ctx.fillRect(px + ts/2 - 2*s, py, 4*s, ts);
+          ctx.fillRect(px, py + ts/2 - 2*s, ts, 4*s);
         }
         // Road: thin tan cross
         else if (imp & IMP_ROAD) {
           ctx.fillStyle = '#a08040';
-          ctx.fillRect(px + TILE_W/2 - 1, py, 2, TILE_H);
-          ctx.fillRect(px, py + TILE_H/2 - 1, TILE_W, 2);
+          ctx.fillRect(px + ts/2 - 1*s, py, 2*s, ts);
+          ctx.fillRect(px, py + ts/2 - 1*s, ts, 2*s);
         }
 
         // Irrigation: blue border
         if (imp & IMP_IRRIG) {
           ctx.strokeStyle = '#4080ff';
           ctx.lineWidth = 1;
-          ctx.strokeRect(px + 1.5, py + 1.5, TILE_W - 3, TILE_H - 3);
+          ctx.strokeRect(px + 1.5, py + 1.5, ts - 3, ts - 3);
         }
 
         // Mine: dark grey dots (2×2 grid)
         if (imp & IMP_MINE) {
           ctx.fillStyle = '#555';
-          ctx.fillRect(px + 4,  py + 4,  3, 3);
-          ctx.fillRect(px + 17, py + 4,  3, 3);
-          ctx.fillRect(px + 4,  py + 17, 3, 3);
-          ctx.fillRect(px + 17, py + 17, 3, 3);
+          ctx.fillRect(px + 4*s,  py + 4*s,  3*s, 3*s);
+          ctx.fillRect(px + 17*s, py + 4*s,  3*s, 3*s);
+          ctx.fillRect(px + 4*s,  py + 17*s, 3*s, 3*s);
+          ctx.fillRect(px + 17*s, py + 17*s, 3*s, 3*s);
         }
 
         // Fortress: small yellow square outline
         if (imp & IMP_FORTRESS) {
           ctx.strokeStyle = '#ffcc00';
           ctx.lineWidth = 2;
-          ctx.strokeRect(px + 4, py + 4, TILE_W - 8, TILE_H - 8);
+          ctx.strokeRect(px + 4*s, py + 4*s, ts - 8*s, ts - 8*s);
         }
       }
     }
@@ -161,39 +223,34 @@ class MapRenderer {
     const drawnTiles = new Set();
 
     this.state.units?.forEach(unit => {
-      const tx = ((unit.x - this.viewX) + MAP_W) % MAP_W;
-      const ty = unit.y - this.viewY;
-      if (tx < 0 || tx >= this.tilesX || ty < 0 || ty >= this.tilesY) return;
+      const px = this._screenX(unit.x);
+      const py = this._screenY(unit.y);
+      if (px < -ts || px > this.canvas.width || py < -ts || py > this.canvas.height) return;
       const tileRow = this.state.map?.tiles[unit.y];
       if (!tileRow || !tileRow[unit.x]?.v) return;
 
-      const key = `${tx},${ty}`;
+      const key = `${unit.x},${unit.y}`;
       if (drawnTiles.has(key)) return;
       drawnTiles.add(key);
 
-      const s = unit.status;
-      const isFortified  = !!(s & STATUS_FORTIFIED);
-      const isFortifying = !!(s & STATUS_FORTIFYING);
-      const isSleeping   = !!(s & STATUS_SENTRY);
-      const isBuildIrr   = !!(s & STATUS_BUILD_IRR) && !(s & STATUS_BUILD_MINE);
-      const isBuildMine  = !!(s & STATUS_BUILD_MINE) && !(s & STATUS_BUILD_IRR);
-      const isBuildFort  = (s & 0xc0) === 0xc0;
-      const isBuildRoad  = !!(s & STATUS_BUILD_ROAD) && !(s & 0xc0);
+      const st = unit.status;
+      const isFortified  = !!(st & STATUS_FORTIFIED);
+      const isFortifying = !!(st & STATUS_FORTIFYING);
+      const isSleeping   = !!(st & STATUS_SENTRY);
+      const isBuildIrr   = !!(st & STATUS_BUILD_IRR) && !(st & STATUS_BUILD_MINE);
+      const isBuildMine  = !!(st & STATUS_BUILD_MINE) && !(st & STATUS_BUILD_IRR);
+      const isBuildFort  = (st & 0xc0) === 0xc0;
+      const isBuildRoad  = !!(st & STATUS_BUILD_ROAD) && !(st & 0xc0);
 
-      const isPassive = isFortified || isFortifying || isSleeping ||
-                        isBuildIrr || isBuildMine || isBuildFort || isBuildRoad;
-
-      const px = tx * TILE_W + 1;
-      const py = ty * TILE_H + 1;
       const color = this._playerColor(unit.playerID);
 
       ctx.fillStyle = color;
-      ctx.fillRect(px, py, TILE_W - 2, TILE_H - 2);
+      ctx.fillRect(px + 1*s, py + 1*s, ts - 2*s, ts - 2*s);
 
       // Label — dark text on light colors, light text on dark colors
       const isDark = _colorIsDark(color);
       ctx.fillStyle = isDark ? '#eee' : '#000';
-      ctx.font = 'bold 10px monospace';
+      ctx.font = `bold ${Math.max(8, 10*s)}px monospace`;
 
       let label = (unit.name || '?')[0];
       if (isFortified || isFortifying) label = 'F';
@@ -203,39 +260,37 @@ class MapRenderer {
       else if (isBuildMine)  label = 'M';
       else if (isBuildRoad)  label = 'R';
 
-      ctx.fillText(label, px + 4, py + 11);
+      ctx.fillText(label, px + 4*s, py + 11*s);
 
       // Small status dot bottom-right
-      if (isFortified) { ctx.fillStyle = '#fff'; ctx.fillRect(px + TILE_W - 7, py + TILE_H - 7, 4, 4); }
-      if (isSleeping)  { ctx.fillStyle = '#88f'; ctx.fillRect(px + TILE_W - 7, py + TILE_H - 7, 4, 4); }
+      if (isFortified) { ctx.fillStyle = '#fff'; ctx.fillRect(px + ts - 7*s, py + ts - 7*s, 4*s, 4*s); }
+      if (isSleeping)  { ctx.fillStyle = '#88f'; ctx.fillRect(px + ts - 7*s, py + ts - 7*s, 4*s, 4*s); }
     });
 
     // --- Cities (drawn after units so they always appear on top) ---
     this.state.cities?.forEach(city => {
-      const tx = ((city.x - this.viewX) + MAP_W) % MAP_W;
-      const ty = city.y - this.viewY;
-      if (tx < 0 || tx >= this.tilesX || ty < 0 || ty >= this.tilesY) return;
-      const px = tx * TILE_W;
-      const py = ty * TILE_H;
+      const px = this._screenX(city.x);
+      const py = this._screenY(city.y);
+      if (px < -ts || px > this.canvas.width || py < -ts || py > this.canvas.height) return;
 
       const color = this._playerColor(city.playerID);
       ctx.fillStyle = color;
-      ctx.fillRect(px + 2, py + 2, TILE_W - 4, TILE_H - 4);
+      ctx.fillRect(px + 2*s, py + 2*s, ts - 4*s, ts - 4*s);
 
       // City size number
       const isDark = _colorIsDark(color);
       ctx.fillStyle = isDark ? '#eee' : '#000';
-      ctx.font = '9px monospace';
-      ctx.fillText(city.size, px + 5, py + 12);
+      ctx.font = `${Math.max(7, 9*s)}px monospace`;
+      ctx.fillText(city.size, px + 5*s, py + 12*s);
 
       // City name below the tile
       const name = city.name || '';
-      ctx.font = '7px monospace';
+      ctx.font = `${Math.max(6, 7*s)}px monospace`;
       ctx.fillStyle = '#fff';
       ctx.strokeStyle = '#000';
       ctx.lineWidth = 2;
-      ctx.strokeText(name, px + 1, py + TILE_H + 8);
-      ctx.fillText(name, px + 1, py + TILE_H + 8);
+      ctx.strokeText(name, px + 1*s, py + ts + 8*s);
+      ctx.fillText(name, px + 1*s, py + ts + 8*s);
     });
 
     // --- Highlight active human unit ---
@@ -245,12 +300,12 @@ class MapRenderer {
            u.moves > 0
     );
     if (activeUnit) {
-      const tx = ((activeUnit.x - this.viewX) + MAP_W) % MAP_W;
-      const ty = activeUnit.y - this.viewY;
-      if (tx >= 0 && tx < this.tilesX && ty >= 0 && ty < this.tilesY) {
+      const px = this._screenX(activeUnit.x);
+      const py = this._screenY(activeUnit.y);
+      if (px >= -ts && px < this.canvas.width && py >= -ts && py < this.canvas.height) {
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
-        ctx.strokeRect(tx * TILE_W + 1, ty * TILE_H + 1, TILE_W - 2, TILE_H - 2);
+        ctx.strokeRect(px + 1*s, py + 1*s, ts - 2*s, ts - 2*s);
         ctx.lineWidth = 1;
       }
     }
@@ -258,18 +313,88 @@ class MapRenderer {
 
   clickToTile(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
-    const tx = Math.floor((clientX - rect.left)  / TILE_W);
-    const ty = Math.floor((clientY - rect.top)   / TILE_H);
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    const wx = Math.floor((this.offsetX + px) / this.tileSize);
+    const wy = Math.floor((this.offsetY + py) / this.tileSize);
     return {
-      x: (this.viewX + tx) % MAP_W,
-      y: this.viewY + ty
+      x: ((wx % MAP_W) + MAP_W) % MAP_W,
+      y: wy
     };
   }
 
-  scroll(dx, dy) {
-    this.viewX = ((this.viewX + dx) + MAP_W) % MAP_W;
-    this.viewY = Math.max(0, Math.min(MAP_H - this.tilesY, this.viewY + dy));
+  // Nudges the view by a number of tiles (used for keyboard scrolling).
+  scroll(dxTiles, dyTiles) {
+    this.offsetX += dxTiles * this.tileSize;
+    this.offsetY += dyTiles * this.tileSize;
+    this._normalizeOffsets();
     this.render();
+  }
+
+  zoomAt(clientX, clientY, deltaY) {
+    const rect = this.canvas.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+
+    // World tile coordinates under the cursor, before zooming.
+    const worldTileX = (this.offsetX + px) / this.tileSize;
+    const worldTileY = (this.offsetY + py) / this.tileSize;
+
+    const factor = deltaY < 0 ? 1.15 : (1 / 1.15);
+    const newTileSize = Math.max(this.minTileSize, Math.min(this.maxTileSize, this.tileSize * factor));
+    if (newTileSize === this.tileSize) return;
+    this.tileSize = newTileSize;
+
+    // Keep the same world point under the cursor after zooming.
+    this.offsetX = worldTileX * this.tileSize - px;
+    this.offsetY = worldTileY * this.tileSize - py;
+    this._normalizeOffsets();
+    this.render();
+  }
+
+  // Drag-to-pan. Wired up internally so main.js doesn't need to know about it,
+  // except to avoid treating a drag as a tile-info click (see consumeDragFlag).
+  _bindInteraction() {
+    this.canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      this.zoomAt(e.clientX, e.clientY, e.deltaY);
+    }, { passive: false });
+
+    this.canvas.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      this._dragging = true;
+      this._dragMoved = false;
+      this._dragLastX = e.clientX;
+      this._dragLastY = e.clientY;
+      this.canvas.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (!this._dragging) return;
+      const dx = e.clientX - this._dragLastX;
+      const dy = e.clientY - this._dragLastY;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this._dragMoved = true;
+      this.offsetX -= dx;
+      this.offsetY -= dy;
+      this._dragLastX = e.clientX;
+      this._dragLastY = e.clientY;
+      this._normalizeOffsets();
+      this.render();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!this._dragging) return;
+      this._dragging = false;
+      this.canvas.style.cursor = 'grab';
+    });
+  }
+
+  // Returns true (and clears the flag) if the last mouse-up ended a drag —
+  // callers use this to suppress click-to-inspect after panning the map.
+  consumeDragFlag() {
+    const moved = this._dragMoved;
+    this._dragMoved = false;
+    return moved;
   }
 }
 
