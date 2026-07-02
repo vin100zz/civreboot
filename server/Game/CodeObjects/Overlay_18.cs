@@ -918,6 +918,15 @@ namespace OpenCivOne
 			this.oCPU.Log.EnterBlock($"F18_0000_0c11_GetSpaceShipData({playerID}, {xPos}, {yPos})");
 
 			// function body
+			// Callers probe the 4 neighbors of a grid cell (xPos±1, yPos±1) without their own
+			// bounds checks, which can land outside the 15x12 SpaceshipData grid at the edges.
+			// Treat out-of-range positions the same as "no part here" (sdata == -1 below).
+			if (xPos < 0 || xPos >= 15 || yPos < 0 || yPos >= 12)
+			{
+				this.oCPU.Log.ExitBlock("F18_0000_0c11_GetSpaceShipData");
+				return 0;
+			}
+
 			sbyte sdata = this.oParent.GameData.Players[playerID].SpaceshipData[(12 * xPos) + yPos];
 
 			if (sdata == -1 || sdata >= 0x3)
