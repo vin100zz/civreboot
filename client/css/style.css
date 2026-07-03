@@ -170,6 +170,63 @@ body, #app {
 }
 #btn-newgame:hover { background: #502020; }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal-box {
+  background: #1a1408;
+  border: 2px solid #8b6914;
+  padding: 16px 20px;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.modal-box h3 {
+  color: #f0c040;
+  margin-bottom: 8px;
+}
+.modal-box label {
+  color: #c0a060;
+  font-size: 12px;
+  margin-top: 6px;
+}
+.modal-box select {
+  background: #2a2010;
+  color: #f0c040;
+  border: 1px solid #5a4020;
+  padding: 4px;
+  font-family: monospace;
+}
+.modal-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.modal-actions button {
+  flex: 1;
+  padding: 6px;
+  cursor: pointer;
+  font-family: monospace;
+  border: 1px solid #8b6914;
+}
+#ng-cancel { background: #2a2010; color: #c0a060; }
+#ng-cancel:hover { background: #3a3020; }
+#ng-start { background: #4a3010; color: #f0c040; }
+#ng-start:hover { background: #6a5020; }
+
 #city-list {
   list-style: none;
   font-size: 11px;

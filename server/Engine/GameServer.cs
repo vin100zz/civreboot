@@ -28,10 +28,10 @@ namespace OpenCivOne.Server
         // Starts a fresh game. The old session's engine thread has no cancellation
         // hook into the decompiled VCPU loop, so it's left running in the background
         // (harmless — IsBackground threads die with the process) rather than torn down.
-        public string NewGame()
+        public string NewGame(NewGameOptions? options = null)
         {
             var old = _session;
-            _session = new GameSession(_civPath);
+            _session = new GameSession(_civPath, options);
             Console.WriteLine($"[GameServer] Session {_session.SessionId} started (replacing {old.SessionId})");
             old.Dispose();
             return _session.GetState();

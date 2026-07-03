@@ -11,8 +11,10 @@ namespace OpenCivOne.Server
         private readonly OpenCivOneGame _game;
         private readonly CancellationTokenSource _cts = new();
 
-        public GameSession(string civPath)
+        public GameSession(string civPath, NewGameOptions? options = null)
         {
+            var opts = NewGameOptions.Clamp(options ?? new NewGameOptions());
+
             _game = new OpenCivOneGame(civPath);
 
             var gameThread = new Thread(() =>
@@ -24,20 +26,21 @@ namespace OpenCivOne.Server
             { IsBackground = true, Name = "GameEngine" };
 
             // Désactive les barbares proprement via le flag lu par F0_1238_0980() dans Segment_1238.cs.
-            _game.NoBarbarians = true;
-            Console.WriteLine("[Init] NoBarbarians = true");
+            _game.NoBarbarians = !opts.Barbarians;
+            Console.WriteLine($"[Init] NoBarbarians = {_game.NoBarbarians}");
 
-            // Force LandMass=2 (Large) avant que GenerateMap() soit appelé.
-            // "New Game" (MainCode case 0) hardcode LandMass=1 puis appelle GenerateMap() :
-            // on écrase la variable en boucle jusqu'au démarrage du premier tour.
+            // Force LandMass/Age avant que GenerateMap() soit appelé.
+            // "New Game" (MainCode case 0) hardcode LandMass=1/Age=1 puis appelle GenerateMap() :
+            // on écrase les variables en boucle jusqu'au démarrage du premier tour.
             var landmassThread = new Thread(() =>
             {
                 while (_game.GameData.TurnCount == 0 && !_cts.Token.IsCancellationRequested)
                 {
-                    _game.Var_7ef6_PlanetLandMass = 2;
+                    _game.Var_7ef6_PlanetLandMass = opts.LandMass;
+                    _game.Var_7efc_PlanetAge = opts.Age;
                     Thread.Sleep(50);
                 }
-                Console.WriteLine($"[LandMass] Carte générée avec LandMass={_game.Var_7ef6_PlanetLandMass}");
+                Console.WriteLine($"[LandMass] Carte générée avec LandMass={_game.Var_7ef6_PlanetLandMass} Age={_game.Var_7efc_PlanetAge}");
             })
             { IsBackground = true, Name = "LandMassOverride" };
 
@@ -71,8 +74,10 @@ namespace OpenCivOne.Server
                 Console.WriteLine("[AutoStart] Waiting for map gen...");
                 Thread.Sleep(6000);
                 // Difficulty: 0=Chieftain 1=Warlord 2=Prince 3=King 4=Emperor
-                Console.WriteLine("[AutoStart] Difficulty → Prince...");
-                SelectMenuByKey('p'); // P = Prince
+                char[] difficultyKeys = { 'c', 'w', 'p', 'k', 'e' };
+                string[] difficultyNames = { "Chieftain", "Warlord", "Prince", "King", "Emperor" };
+                Console.WriteLine($"[AutoStart] Difficulty → {difficultyNames[opts.Difficulty]}...");
+                SelectMenuByKey(difficultyKeys[opts.Difficulty]);
                 Thread.Sleep(300);
                 Console.WriteLine("[AutoStart] Competition...");
                 Burst(1000);
@@ -83,11 +88,11 @@ namespace OpenCivOne.Server
                 Console.WriteLine("[AutoStart] Start screen...");
                 Burst(2000);
                 Console.WriteLine("[AutoStart] Done — game loop should be running");
-                // Forcer Prince (2) car l'injection de touches est trop fragile
+                // Force la difficulté choisie car l'injection de touches est trop fragile
                 // face à EmptyKeyboardBufferAndClearMouse() du menu de difficulté
                 Thread.Sleep(500);
-                _game.GameData.DifficultyLevel = 2;
-                Console.WriteLine($"[AutoStart] DifficultyLevel forcé = {_game.GameData.DifficultyLevel} (Prince)");
+                _game.GameData.DifficultyLevel = (short)opts.Difficulty;
+                Console.WriteLine($"[AutoStart] DifficultyLevel forcé = {_game.GameData.DifficultyLevel} ({difficultyNames[opts.Difficulty]})");
             })
             { IsBackground = true, Name = "AutoStart" };
 

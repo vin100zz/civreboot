@@ -50,7 +50,24 @@ app.MapPost("/api/action", async (GameServer gs, HttpContext ctx) =>
 app.MapPost("/api/reveal", (GameServer gs) =>
     Results.Text(gs.RevealMap(), "application/json"));
 
-app.MapPost("/api/newgame", (GameServer gs) =>
-    Results.Text(gs.NewGame(), "application/json"));
+app.MapPost("/api/newgame", async (GameServer gs, HttpContext ctx) =>
+{
+    NewGameOptions? options = null;
+    using (var reader = new StreamReader(ctx.Request.Body))
+    {
+        var body = await reader.ReadToEndAsync();
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            options = new NewGameOptions(
+                Difficulty: root.TryGetProperty("difficulty", out var d) ? d.GetInt32() : 2,
+                LandMass: root.TryGetProperty("landMass", out var l) ? l.GetInt32() : 2,
+                Age: root.TryGetProperty("age", out var a) ? a.GetInt32() : 1,
+                Barbarians: root.TryGetProperty("barbarians", out var b) && b.GetBoolean());
+        }
+    }
+    return Results.Text(gs.NewGame(options), "application/json");
+});
 
 app.Run();

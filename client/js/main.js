@@ -189,8 +189,25 @@ document.getElementById('btn-reveal').addEventListener('click', async () => {
   updateUI(state);
 });
 
-document.getElementById('btn-newgame').addEventListener('click', async () => {
-  if (!confirm('Démarrer une nouvelle partie ? La partie en cours sera perdue.')) return;
+const newGameModal = document.getElementById('newgame-modal');
+
+document.getElementById('btn-newgame').addEventListener('click', () => {
+  newGameModal.style.display = 'flex';
+});
+
+document.getElementById('ng-cancel').addEventListener('click', () => {
+  newGameModal.style.display = 'none';
+});
+
+document.getElementById('ng-start').addEventListener('click', async () => {
+  const options = {
+    difficulty: Number(document.getElementById('ng-difficulty').value),
+    landMass: Number(document.getElementById('ng-landmass').value),
+    age: Number(document.getElementById('ng-age').value),
+    barbarians: document.getElementById('ng-barbarians').checked,
+  };
+  newGameModal.style.display = 'none';
+
   if (autoPlay) {
     autoPlay = false;
     const btn = document.getElementById('btn-autoplay');
@@ -201,7 +218,11 @@ document.getElementById('btn-newgame').addEventListener('click', async () => {
   setStatus('Nouvelle partie en cours de démarrage…');
   renderer._centered = false; // recenter the view on the new game's starting unit
   try {
-    await fetch('/api/newgame', { method: 'POST' });
+    await fetch('/api/newgame', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options),
+    });
   } catch (e) {
     setStatus('Erreur: ' + e.message);
     setBusy(false);

@@ -53,6 +53,43 @@
     </div>
   </div>
 
+  <div id="newgame-modal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <h3>New Game</h3>
+      <label for="ng-difficulty">Difficulty</label>
+      <select id="ng-difficulty">
+        <option value="0">Chieftain</option>
+        <option value="1">Warlord</option>
+        <option value="2" selected>Prince</option>
+        <option value="3">King</option>
+        <option value="4">Emperor</option>
+      </select>
+
+      <label for="ng-landmass">Land Mass</label>
+      <select id="ng-landmass">
+        <option value="-1">Tiny</option>
+        <option value="0">Small</option>
+        <option value="1">Normal</option>
+        <option value="2" selected>Large</option>
+        <option value="3">Huge</option>
+      </select>
+
+      <label for="ng-age">Age</label>
+      <select id="ng-age">
+        <option value="0">3 billion years</option>
+        <option value="1" selected>4 billion years</option>
+        <option value="2">5 billion years</option>
+      </select>
+
+      <label class="modal-checkbox"><input type="checkbox" id="ng-barbarians"> Barbarians</label>
+
+      <div class="modal-actions">
+        <button id="ng-cancel">Cancel</button>
+        <button id="ng-start">Start</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/renderer.js"></script>
   <script src="js/main.js"></script>
 </body>

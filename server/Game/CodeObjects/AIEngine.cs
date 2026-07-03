@@ -943,8 +943,6 @@ namespace OpenCivOne
 
 				if (unitRoleType == UnitRoleTypeEnum.SeaTransport || unitRoleType == UnitRoleTypeEnum.SeaAttack)
 				{
-					if (unitRoleType == UnitRoleTypeEnum.SeaTransport)
-						System.Console.WriteLine($"[AI-SHIP-DIAG] P{playerID}u{unitID}@({unitX},{unitY}) strat={continentStrategy} dest=({unit.GoToDestination.X},{unit.GoToDestination.Y}) moves={unit.RemainingMoves}");
 					int newUnitDirection = 0;
 					int unitRoleBits = 0;
 					int unitCount = 0;
@@ -989,6 +987,18 @@ namespace OpenCivOne
 								// Instruction address 0x25fb:0x179d, size: 5
 								int distance = this.parent.GameTools.F0_2dc4_0289_GetShortestDistance(unitX, unitY,
 									this.parent.GameData.Cities[i].Position.X, this.parent.GameData.Cities[i].Position.Y);
+
+								// This search only runs when the ship's current cargo is insufficient
+								// (see the enclosing "if" above), i.e. it needs to sail somewhere ELSE to
+								// pick up more passengers. A candidate at distance 0 is the ship's own
+								// current city — picking it sets GoToDestination to the ship's own
+								// position, which the arrival-check treats as "already there" and
+								// re-triggers this same search next turn with the same result: the ship
+								// gets permanently stuck oscillating between "arrived" and "re-target
+								// home", observed live as ships parked forever with GoToDestination ==
+								// their own position. Skip it so a real destination (or none, falling
+								// through to the exploration logic below) is chosen instead.
+								if (distance == 0) continue;
 
 								// Instruction address 0x25fb:0x17b4, size: 5
 								int cityGroupID = this.parent.MapManagement.F0_2aea_1942_GetGroupID(this.parent.GameData.Cities[i].Position.X,
