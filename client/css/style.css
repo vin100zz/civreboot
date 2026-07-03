@@ -46,7 +46,7 @@ body, #app {
 }
 
 #sidebar {
-  width: 200px;
+  width: 280px;
   background: #111;
   border-left: 2px solid #4a3010;
   display: flex;
@@ -227,14 +227,49 @@ body, #app {
 #ng-start { background: #4a3010; color: #f0c040; }
 #ng-start:hover { background: #6a5020; }
 
+#civs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.civ-row {
+  padding: 4px;
+  border: 1px solid #2a2010;
+  background: #171310;
+}
+.civ-row .civ-name {
+  color: #f0c040;
+  font-weight: bold;
+}
+.civ-row .civ-stats {
+  color: #c0a060;
+  margin-top: 2px;
+  white-space: pre-line;
+}
+.civ-row.civ-human { border-color: #4a8030; }
+
 #city-list {
   list-style: none;
   font-size: 11px;
+  max-height: 260px;
+  overflow-y: auto;
 }
 #city-list li {
-  padding: 2px 0;
+  padding: 4px 0;
   border-bottom: 1px solid #2a2010;
   color: #c0a060;
+}
+#city-list .city-name {
+  color: #e0d0a0;
+  font-weight: bold;
+}
+#city-list .city-stats {
+  margin-top: 2px;
+  white-space: pre-line;
+  color: #a08858;
 }
 
 #status-panel {

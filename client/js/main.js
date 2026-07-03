@@ -18,6 +18,7 @@ const yearEl   = document.getElementById('year-info');
 const playerEl = document.getElementById('player-info');
 const unitEl   = document.getElementById('unit-info');
 const cityList = document.getElementById('city-list');
+const civsList = document.getElementById('civs-list');
 
 let busy = false;
 let currentActiveUnit = null;
@@ -80,11 +81,55 @@ function updateUI(state) {
         document.getElementById('unit-actions').style.display = 'none';
     }
 
+    renderCivs(state);
+
     cityList.innerHTML = '';
     state.cities?.filter(c => c.playerID === state.humanPlayerID).forEach(c => {
         const li = document.createElement('li');
-        li.textContent = `${c.name} (${c.size})`;
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'city-name';
+        nameEl.textContent = `${c.name} (${c.size})`;
+        li.appendChild(nameEl);
+
+        const statsEl = document.createElement('div');
+        statsEl.className = 'city-stats';
+        const netStr = c.food.net >= 0 ? `+${c.food.net}` : `${c.food.net}`;
+        statsEl.textContent =
+            `🌾 ${c.food.produced}▲ ${c.food.consumed}▼ (${netStr})  [${c.food.stored}/${c.food.neededToGrow}]\n` +
+            `🔨 ${c.shields.producedPerTurn}/turn  ${c.shields.current || '—'} [${c.shields.stored}/${c.shields.cost}]\n` +
+            `💰${c.trade.gold} 🔬${c.trade.science} 🎭${c.trade.luxury}  👥${c.unitsSupported}`;
+        li.appendChild(statsEl);
+
         cityList.appendChild(li);
+    });
+}
+
+function renderCivs(state) {
+    if (!civsList) return;
+    civsList.innerHTML = '';
+    state.players?.forEach(p => {
+        if (!p.nationality) return; // skip barbarians (no nationality)
+
+        const row = document.createElement('div');
+        row.className = 'civ-row' + (p.id === state.humanPlayerID ? ' civ-human' : '');
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'civ-name';
+        nameEl.textContent = `${p.nationality} — ${p.governmentName}`;
+        row.appendChild(nameEl);
+
+        const statsEl = document.createElement('div');
+        statsEl.className = 'civ-stats';
+        const researchStr = p.research
+            ? `${p.research.name} (${p.research.progress}/${p.research.total})`
+            : '—';
+        statsEl.textContent =
+            `💰${p.coins}  Tax${p.taxRate}% Sci${p.scienceRate}% Lux${p.luxuryRate}%\n` +
+            `🔬 ${researchStr}`;
+        row.appendChild(statsEl);
+
+        civsList.appendChild(row);
     });
 }
 
