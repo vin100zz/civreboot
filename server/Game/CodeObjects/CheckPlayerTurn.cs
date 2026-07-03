@@ -241,6 +241,10 @@ namespace OpenCivOne
 				// Instruction address 0x1403:0x0496, size: 5
 				command = this.parent.AIEngine.F0_25fb_0c9d_MoveUnit(playerID, unitID);
 
+				if (unitID >= 0 && unitID < 128 &&
+					this.parent.GameData.Units[(int)this.parent.GameData.Players[playerID].Units[unitID].UnitType].UnitRoleType == UnitRoleTypeEnum.SeaTransport)
+					System.Console.WriteLine($"[AI-SHIP-CMD] P{playerID}u{unitID} command={(int)command} dest=({this.parent.GameData.Players[playerID].Units[unitID].GoToDestination.X},{this.parent.GameData.Players[playerID].Units[unitID].GoToDestination.Y})");
+
 				if (command != 0)
 				{
 					this.parent.GameData.Players[playerID].Units[unitID].GoToDestination.X = -1;

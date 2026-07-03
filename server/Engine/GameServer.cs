@@ -1,20 +1,22 @@
-// Singleton — holds one game session for the lifetime of the server.
+// Singleton — holds the current game session. NewGame() swaps in a fresh one.
 using Microsoft.Extensions.Configuration;
 
 namespace OpenCivOne.Server
 {
     public class GameServer : IDisposable
     {
-        private readonly GameSession _session;
+        private readonly string _civPath;
+        private GameSession _session;
 
         public GameServer(IConfiguration config)
         {
-            var civPath = config["CivPath"] ?? @"C:\V\Abandonware-France\Civilization\C\Civ\";
-            if (!civPath.EndsWith(Path.DirectorySeparatorChar))
-                civPath += Path.DirectorySeparatorChar;
+            _civPath = config["CivPath"] ?? @"C:\V\Abandonware-France\Civilization\C\Civ\";
+            if (!_civPath.EndsWith(Path.DirectorySeparatorChar))
+                _civPath += Path.DirectorySeparatorChar;
 
-            Console.WriteLine($"[GameServer] CivPath = {civPath}");
-            Console.WriteLine($"[GameServer] Session {((_session = new GameSession(civPath)).SessionId)} started");
+            Console.WriteLine($"[GameServer] CivPath = {_civPath}");
+            _session = new GameSession(_civPath);
+            Console.WriteLine($"[GameServer] Session {_session.SessionId} started");
         }
 
         public string GetState() => _session.GetState();
@@ -22,6 +24,18 @@ namespace OpenCivOne.Server
         public string InjectAndWait(PlayerAction action) => _session.InjectAndWait(action);
 
         public string RevealMap() => _session.RevealMap();
+
+        // Starts a fresh game. The old session's engine thread has no cancellation
+        // hook into the decompiled VCPU loop, so it's left running in the background
+        // (harmless — IsBackground threads die with the process) rather than torn down.
+        public string NewGame()
+        {
+            var old = _session;
+            _session = new GameSession(_civPath);
+            Console.WriteLine($"[GameServer] Session {_session.SessionId} started (replacing {old.SessionId})");
+            old.Dispose();
+            return _session.GetState();
+        }
 
         public void Dispose() => _session.Dispose();
     }

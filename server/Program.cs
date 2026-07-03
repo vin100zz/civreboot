@@ -50,4 +50,7 @@ app.MapPost("/api/action", async (GameServer gs, HttpContext ctx) =>
 app.MapPost("/api/reveal", (GameServer gs) =>
     Results.Text(gs.RevealMap(), "application/json"));
 
+app.MapPost("/api/newgame", (GameServer gs) =>
+    Results.Text(gs.NewGame(), "application/json"));
+
 app.Run();

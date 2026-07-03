@@ -127,13 +127,18 @@ async function sendAction(obj) {
     }
 }
 
+// Polls /api/state until the engine has finished its intro/auto-start
+// sequence (~15s) and actually has map + unit data — turn alone doesn't work
+// as a readiness signal since it stays 0 until the first End Turn.
 async function pollUntilReady() {
     setStatus('Démarrage du jeu…');
     const state = await loadState();
-    if (!state || state.turn === 0) {
+    const humanHasUnits = state?.units?.some(u => u.playerID === state.humanPlayerID);
+    if (!state || !state.map || !humanHasUnits) {
         setTimeout(pollUntilReady, 1500);
     } else {
         setStatus(`Turn ${state.turn} | ok`);
+        setBusy(false);
     }
 }
 pollUntilReady();
@@ -182,6 +187,27 @@ document.getElementById('btn-reveal').addEventListener('click', async () => {
   const r = await fetch('/api/reveal', { method: 'POST' });
   const state = await r.json();
   updateUI(state);
+});
+
+document.getElementById('btn-newgame').addEventListener('click', async () => {
+  if (!confirm('Démarrer une nouvelle partie ? La partie en cours sera perdue.')) return;
+  if (autoPlay) {
+    autoPlay = false;
+    const btn = document.getElementById('btn-autoplay');
+    btn.textContent = '▶ Auto-play';
+    btn.classList.remove('active');
+  }
+  setBusy(true);
+  setStatus('Nouvelle partie en cours de démarrage…');
+  renderer._centered = false; // recenter the view on the new game's starting unit
+  try {
+    await fetch('/api/newgame', { method: 'POST' });
+  } catch (e) {
+    setStatus('Erreur: ' + e.message);
+    setBusy(false);
+    return;
+  }
+  pollUntilReady();
 });
 
 // Keyboard shortcuts

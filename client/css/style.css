@@ -158,6 +158,18 @@ body, #app {
 #btn-autoplay:hover { background: #204020; }
 #btn-autoplay.active { background: #402010; color: #ffа040; border-color: #804020; }
 
+#btn-newgame {
+  width: 100%;
+  background: #301010;
+  color: #ff8080;
+  border: 1px solid #803030;
+  padding: 4px;
+  cursor: pointer;
+  font-family: monospace;
+  margin-top: 4px;
+}
+#btn-newgame:hover { background: #502020; }
+
 #city-list {
   list-style: none;
   font-size: 11px;

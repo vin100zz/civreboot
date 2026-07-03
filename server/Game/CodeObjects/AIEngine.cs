@@ -943,6 +943,8 @@ namespace OpenCivOne
 
 				if (unitRoleType == UnitRoleTypeEnum.SeaTransport || unitRoleType == UnitRoleTypeEnum.SeaAttack)
 				{
+					if (unitRoleType == UnitRoleTypeEnum.SeaTransport)
+						System.Console.WriteLine($"[AI-SHIP-DIAG] P{playerID}u{unitID}@({unitX},{unitY}) strat={continentStrategy} dest=({unit.GoToDestination.X},{unit.GoToDestination.Y}) moves={unit.RemainingMoves}");
 					int newUnitDirection = 0;
 					int unitRoleBits = 0;
 					int unitCount = 0;
