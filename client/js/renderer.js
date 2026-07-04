@@ -35,16 +35,19 @@ const TERRAIN_COLORS = [
   '#4080c0', // 23 = ResourceRiver
 ];
 
-// Terrain sprite files, indices 0-11 match TerrainTypeEnum base terrain types.
+// Terrain sprite files, indices 0-10 match TerrainTypeEnum base terrain types.
+// River (11) has no entry here — it's drawn as a grassland base plus a
+// directional river_overlay.png per adjacent water tile (see _drawRiverOverlay).
 const TERRAIN_SPRITE_FILES = [
   'desert.png', 'plains.png', 'grassland.png', 'forest.png', 'hills.png', 'mountains.png',
-  'tundra.png', 'arctic.png', 'swamp.png', 'jungle.png', 'ocean.png', 'river.png',
+  'tundra.png', 'arctic.png', 'swamp.png', 'jungle.png', 'ocean.png',
 ];
 
 // Resource variants (12-23) reuse the visual of their underlying base terrain
 // (no dedicated resource artwork is provided) — same pairing as TERRAIN_COLORS above.
 const RESOURCE_TERRAIN_BASE = [0, 2, 2, 3, 5, 0, 3, 7, 10, 2, 10, 11];
 function terrainSpriteIndex(t) { return t >= 12 ? RESOURCE_TERRAIN_BASE[t - 12] : t; }
+function _isWaterBaseIndex(idx) { return idx === 10 || idx === 11; }
 
 // TerrainImprovementFlagsEnum
 const IMP_CITY      = 0x01;
@@ -93,6 +96,7 @@ function _loadImage(relPath) {
 }
 
 const TERRAIN_SPRITES = TERRAIN_SPRITE_FILES.map(f => _loadImage('terrain/' + f));
+const RIVER_OVERLAY_SPRITE = _loadImage('terrain/river_overlay.png');
 const UNIT_SPRITES = UNIT_SPRITE_FILES.map(f => _loadImage('unit/' + f));
 const CITY_SPRITE = _loadImage('city/city.png');
 const CITY_WITH_UNIT_SPRITE = _loadImage('city/city_with_unit.png');
@@ -110,6 +114,40 @@ function _drawSprite(ctx, img, x, y, w, h) {
     return true;
   }
   return false;
+}
+
+// Every non-ocean terrain is drawn as grassland.png underneath its own
+// terrain-specific overlay (or, for plain grassland, underneath nothing).
+function _drawGrasslandBase(ctx, px, py, ts) {
+  const grass = TERRAIN_SPRITES[2];
+  if (!grass || !_drawSprite(ctx, grass, px, py, ts, ts)) {
+    ctx.fillStyle = TERRAIN_COLORS[2];
+    ctx.fillRect(px, py, ts, ts);
+  }
+}
+
+// True if the tile at (mx+dx, my+dy) — wrapped horizontally, clamped (not
+// wrapped) vertically like the rest of the map — is water (ocean or river).
+function _riverNeighborIsWater(tiles, mx, my, dx, dy) {
+  const nx = ((mx + dx) % MAP_W + MAP_W) % MAP_W;
+  const ny = my + dy;
+  if (ny < 0 || ny >= MAP_H) return false;
+  const t = tiles[ny]?.[nx];
+  if (!t || t.v === 0) return false;
+  return _isWaterBaseIndex(terrainSpriteIndex(t.t));
+}
+
+// River tiles are drawn as a grassland base with river_overlay.png rotated
+// once per adjacent water tile (a river can bend/branch, so 0-4 copies).
+// The overlay art points right by default: up=-90deg, down=+90deg, left=180deg.
+function _drawRiverOverlay(ctx, cx, cy, ts, angleDeg) {
+  const img = RIVER_OVERLAY_SPRITE;
+  if (!img.complete || img.naturalWidth === 0) return;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angleDeg * Math.PI / 180);
+  ctx.drawImage(img, -ts / 2, -ts / 2, ts, ts);
+  ctx.restore();
 }
 
 class MapRenderer {
@@ -233,10 +271,36 @@ class MapRenderer {
           continue;
         }
 
-        const sprite = TERRAIN_SPRITES[terrainSpriteIndex(tile.t)];
-        if (!sprite || !_drawSprite(ctx, sprite, px, py, ts, ts)) {
-          ctx.fillStyle = TERRAIN_COLORS[tile.t] ?? '#333';
-          ctx.fillRect(px, py, ts, ts);
+        const baseIdx = terrainSpriteIndex(tile.t);
+        if (baseIdx === 10) {
+          // Ocean: opaque background art, no grassland underneath.
+          const sprite = TERRAIN_SPRITES[10];
+          if (!sprite || !_drawSprite(ctx, sprite, px, py, ts, ts)) {
+            ctx.fillStyle = TERRAIN_COLORS[10];
+            ctx.fillRect(px, py, ts, ts);
+          }
+        } else {
+          // Every other terrain (including river) is grassland underneath,
+          // with the specific terrain drawn as an overlay on top — a hill
+          // tile is grassland.png + hill.png, etc. Grassland itself has no
+          // overlay; river's overlay is the directional river piece(s).
+          _drawGrasslandBase(ctx, px, py, ts);
+
+          if (baseIdx === 11) {
+            const cx = px + ts / 2, cy = py + ts / 2;
+            if (_riverNeighborIsWater(tiles, mx, my, 1, 0))  _drawRiverOverlay(ctx, cx, cy, ts, 0);
+            if (_riverNeighborIsWater(tiles, mx, my, 0, -1)) _drawRiverOverlay(ctx, cx, cy, ts, -90);
+            if (_riverNeighborIsWater(tiles, mx, my, 0, 1))  _drawRiverOverlay(ctx, cx, cy, ts, 90);
+            if (_riverNeighborIsWater(tiles, mx, my, -1, 0)) _drawRiverOverlay(ctx, cx, cy, ts, 180);
+          } else if (baseIdx !== 2) {
+            const overlay = TERRAIN_SPRITES[baseIdx];
+            if (!overlay || !_drawSprite(ctx, overlay, px, py, ts, ts)) {
+              ctx.fillStyle = TERRAIN_COLORS[tile.t] ?? '#333';
+              ctx.beginPath();
+              ctx.arc(px + ts / 2, py + ts / 2, ts / 2.6, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
         }
 
         // --- Improvements (drawn as overlays on top of the terrain) ---
