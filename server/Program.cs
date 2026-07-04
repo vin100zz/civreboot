@@ -17,7 +17,12 @@ var app = builder.Build();
 app.Services.GetRequiredService<GameServer>();
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    // This is a dev prototype iterated on constantly — always revalidate so
+    // browsers don't serve a stale cached copy of the JS/CSS after an edit.
+    OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = "no-cache",
+});
 
 app.MapGet("/api/state", (GameServer gs) =>
     Results.Text(gs.GetState(), "application/json"));

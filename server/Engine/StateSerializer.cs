@@ -322,19 +322,25 @@ namespace OpenCivOne.Server
                 // screen (Overlay_14.cs F14_0000_014b_ScienceReport). Var_d2de there is a
                 // per-turn value recomputed in Segment_1238's GameTurn (not player-specific):
                 // 0 in the BC era, otherwise clamp(MaximumTechnologyCount - TurnCount/9, 0, 6).
-                object? research = null;
-                if (p.ResearchTechnologyID != -1 && p.ResearchTechnologyID < gd.TechnologyAdvances.Length)
+                //
+                // ResearchTechnologyID (the *named* target) is a human-only concept in the
+                // original game: AI players accumulate ResearchProgress the same way, but the
+                // engine only picks (and reveals) which tech they get at the moment research
+                // completes, never before — so `name` stays null for AI (and for the human
+                // before their first choice). Progress/total are always shown regardless, since
+                // they don't depend on a chosen target.
+                int varD2de = gd.Year < 0 ? 0 : Math.Clamp(gd.MaximumTechnologyCount - (gd.TurnCount / 9), 0, 6);
+                int total = Math.Max((p.DiscoveredTechnologyCount * (gd.Year < 0 ? 1 : 2)) *
+                    Math.Max((gd.DifficultyLevel * 2) + varD2de + 6, 11 - p.DiscoveredTechnologyCount), 1);
+                string? researchName = (p.ResearchTechnologyID != -1 && p.ResearchTechnologyID < gd.TechnologyAdvances.Length)
+                    ? gd.TechnologyAdvances[p.ResearchTechnologyID].Name
+                    : null;
+                var research = new
                 {
-                    int varD2de = gd.Year < 0 ? 0 : Math.Clamp(gd.MaximumTechnologyCount - (gd.TurnCount / 9), 0, 6);
-                    int total = (p.DiscoveredTechnologyCount * (gd.Year < 0 ? 1 : 2)) *
-                        Math.Max((gd.DifficultyLevel * 2) + varD2de + 6, 11 - p.DiscoveredTechnologyCount);
-                    research = new
-                    {
-                        name = gd.TechnologyAdvances[p.ResearchTechnologyID].Name,
-                        progress = Math.Clamp((int)p.ResearchProgress, 0, Math.Max(total, 1)),
-                        total = Math.Max(total, 1),
-                    };
-                }
+                    name = researchName,
+                    progress = Math.Clamp((int)p.ResearchProgress, 0, total),
+                    total,
+                };
 
                 int govIdx = Math.Clamp((int)p.GovernmentType, 0, 5);
 

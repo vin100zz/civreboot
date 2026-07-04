@@ -116,13 +116,18 @@ function renderCivs(state) {
 
         const nameEl = document.createElement('div');
         nameEl.className = 'civ-name';
-        nameEl.textContent = `${p.nationality} — ${p.governmentName}`;
+        nameEl.textContent = `${p.nationality} (${p.governmentName})`;
         row.appendChild(nameEl);
 
         const statsEl = document.createElement('div');
         statsEl.className = 'civ-stats';
+        // AI civs (and the human before their first choice) don't have a named
+        // research target in the original game — it's only revealed the instant
+        // research completes — so show progress alone in that case.
         const researchStr = p.research
-            ? `${p.research.name} (${p.research.progress}/${p.research.total})`
+            ? (p.research.name
+                ? `${p.research.name} (${p.research.progress}/${p.research.total})`
+                : `? (${p.research.progress}/${p.research.total})`)
             : '—';
         statsEl.textContent =
             `💰${p.coins}  Tax${p.taxRate}% Sci${p.scienceRate}% Lux${p.luxuryRate}%\n` +
