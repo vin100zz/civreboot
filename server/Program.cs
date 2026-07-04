@@ -1,4 +1,5 @@
 using System.Text.Json;
+using OpenCivOne;
 using OpenCivOne.Server;
 
 // Client lives at reboot2/client, a sibling of this project's directory
@@ -69,10 +70,15 @@ app.MapPost("/api/newgame", async (GameServer gs, HttpContext ctx) =>
                 Difficulty: root.TryGetProperty("difficulty", out var d) ? d.GetInt32() : 2,
                 LandMass: root.TryGetProperty("landMass", out var l) ? l.GetInt32() : 2,
                 Age: root.TryGetProperty("age", out var a) ? a.GetInt32() : 1,
-                Barbarians: root.TryGetProperty("barbarians", out var b) && b.GetBoolean());
+                Barbarians: root.TryGetProperty("barbarians", out var b) && b.GetBoolean(),
+                Earth: root.TryGetProperty("earth", out var e) && e.GetBoolean(),
+                CustomMap: root.TryGetProperty("customMap", out var m) ? m.GetString() : null);
         }
     }
     return Results.Text(gs.NewGame(options), "application/json");
 });
+
+app.MapGet("/api/maps", () =>
+    Results.Json(OpenCivOne.Server.Maps.CustomMapFormat.ListMaps()));
 
 app.Run();

@@ -240,8 +240,38 @@ document.getElementById('btn-reveal').addEventListener('click', async () => {
 });
 
 const newGameModal = document.getElementById('newgame-modal');
+const ngMapSelect = document.getElementById('ng-map');
+const ngLandmassSelect = document.getElementById('ng-landmass');
+const ngAgeSelect = document.getElementById('ng-age');
+
+// Custom maps (server/Maps/*.json) are appended to the Map dropdown as
+// "custom:<name>" options, fetched once from the server.
+let customMapsLoaded = false;
+async function loadCustomMapOptions() {
+  if (customMapsLoaded) return;
+  customMapsLoaded = true;
+  try {
+    const names = await (await fetch('/api/maps')).json();
+    for (const name of names) {
+      const opt = document.createElement('option');
+      opt.value = `custom:${name}`;
+      opt.textContent = name;
+      ngMapSelect.appendChild(opt);
+    }
+  } catch { /* server maps list is optional; Random/Earth still work */ }
+}
+
+// Land mass / age only affect procedural generation — grey them out once a
+// prebuilt map (Earth or a custom map) is selected, since they're ignored.
+function updateMapDependentControls() {
+  const isPrebuilt = ngMapSelect.value !== 'random';
+  ngLandmassSelect.disabled = isPrebuilt;
+  ngAgeSelect.disabled = isPrebuilt;
+}
+ngMapSelect.addEventListener('change', updateMapDependentControls);
 
 document.getElementById('btn-newgame').addEventListener('click', () => {
+  loadCustomMapOptions();
   newGameModal.style.display = 'flex';
 });
 
@@ -250,11 +280,14 @@ document.getElementById('ng-cancel').addEventListener('click', () => {
 });
 
 document.getElementById('ng-start').addEventListener('click', async () => {
+  const mapValue = ngMapSelect.value;
   const options = {
     difficulty: Number(document.getElementById('ng-difficulty').value),
     landMass: Number(document.getElementById('ng-landmass').value),
     age: Number(document.getElementById('ng-age').value),
     barbarians: document.getElementById('ng-barbarians').checked,
+    earth: mapValue === 'earth',
+    customMap: mapValue.startsWith('custom:') ? mapValue.slice('custom:'.length) : null,
   };
   newGameModal.style.display = 'none';
 

@@ -70,6 +70,23 @@ namespace OpenCivOne
 		}
 
 		/// <summary>
+		/// Creates a new map from a custom terrain grid (server/Maps/*.json — see
+		/// OpenCivOne.Server.Maps.CustomMapFormat), same convention as LoadEarthMap: a fresh
+		/// blank map, terrain written cell-by-cell, registered as screen 3.
+		/// </summary>
+		public void LoadCustomMap(TerrainTypeEnum[,] grid)
+		{
+			CreateNewEmptyMap();
+
+			int width = grid.GetLength(0);
+			int height = grid.GetLength(1);
+
+			for (int x = 0; x < width; x++)
+				for (int y = 0; y < height; y++)
+					SetTerrainType(x, y, grid[x, y]);
+		}
+
+		/// <summary>
 		/// Creates a new empty map that needs to be populated
 		/// </summary>
 		public void CreateNewEmptyMap()

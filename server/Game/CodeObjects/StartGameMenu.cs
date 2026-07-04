@@ -1,4 +1,5 @@
 using System.Text;
+using OpenCivOne.Graphics;
 
 namespace OpenCivOne
 {
@@ -542,9 +543,22 @@ namespace OpenCivOne
 
 					if (this.parent.GameData.TurnCount == 0 && this.parent.Var_d76a_EarthMap)
 					{
-						xStart = this.parent.Array_35da[this.parent.GameData.Players[playerID].NationalityID].X;
-						yStart = this.parent.Array_35da[this.parent.GameData.Players[playerID].NationalityID].Y;
-						tryCount = 0;
+						// Real Earth always has a hardcoded position for every nationality
+						// (Array_35da); a custom map may only define some, or none — for the
+						// rest, fall through and keep whatever the random site-search above found.
+						int nationalityID = this.parent.GameData.Players[playerID].NationalityID;
+						GPoint? startPos = this.parent.CustomMapGrid != null
+							? this.parent.CustomMapStartPositions[nationalityID]
+							: this.parent.Array_35da[nationalityID];
+
+						// GPoint overloads == / != without null-checking (NullReferenceException
+						// on a null operand) — use "is not null" (reference check) instead.
+						if (startPos is not null)
+						{
+							xStart = startPos.X;
+							yStart = startPos.Y;
+							tryCount = 0;
+						}
 					}
 
 					if (this.parent.GameData.TurnCount != 0 &&

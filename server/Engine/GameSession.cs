@@ -1,6 +1,7 @@
 // One game instance. The game engine runs on a background thread.
 // Human input comes via InjectAndWait() called directly from HTTP handlers.
 using IRB.VirtualCPU;
+using OpenCivOne.Graphics;
 
 namespace OpenCivOne.Server
 {
@@ -29,7 +30,35 @@ namespace OpenCivOne.Server
             _game.NoBarbarians = !opts.Barbarians;
             Console.WriteLine($"[Init] NoBarbarians = {_game.NoBarbarians}");
 
-            // Force LandMass/Age avant que GenerateMap() soit appelé.
+            // Earth / custom map: force Var_d76a_EarthMap so MapInitAndIntro.GenerateMap()
+            // skips procedural generation entirely (see MapInitAndIntro.cs ~line 65) —
+            // regardless of which menu item the autoStart burst below actually selects,
+            // since MainCode's "Start a New Game" (case 0) and "EARTH" (case 2) both just
+            // call the same GenerateMap(). CustomMap takes priority over Earth if both set.
+            bool loadPrebuiltMap = opts.Earth || opts.CustomMap != null;
+            if (opts.CustomMap != null)
+            {
+                var mapData = OpenCivOne.Server.Maps.CustomMapFormat.Load(opts.CustomMap);
+                _game.CustomMapGrid = mapData.Grid;
+
+                // Resolve the map's per-nationality start positions (keyed by name, e.g.
+                // "Roman") to NationalityID slots (see GameData.cs's nationTypes list for
+                // the id <-> name mapping) — this is what StartGameMenu.cs reads instead of
+                // the real Array_35da when a custom map is active.
+                int matched = 0;
+                for (int i = 0; i < _game.GameData.Nations.Length; i++)
+                {
+                    string nationality = _game.GameData.Nations[i].Nationality;
+                    if (!string.IsNullOrEmpty(nationality) && mapData.StartPositions.TryGetValue(nationality, out var pos))
+                    {
+                        _game.CustomMapStartPositions[i] = new GPoint(pos.X, pos.Y);
+                        matched++;
+                    }
+                }
+                Console.WriteLine($"[Map] Carte personnalisée chargée : {opts.CustomMap} ({matched} position(s) de départ définies)");
+            }
+
+            // Force LandMass/Age (et EarthMap) avant que GenerateMap() soit appelé.
             // "New Game" (MainCode case 0) hardcode LandMass=1/Age=1 puis appelle GenerateMap() :
             // on écrase les variables en boucle jusqu'au démarrage du premier tour.
             var landmassThread = new Thread(() =>
@@ -38,6 +67,7 @@ namespace OpenCivOne.Server
                 {
                     _game.Var_7ef6_PlanetLandMass = opts.LandMass;
                     _game.Var_7efc_PlanetAge = opts.Age;
+                    if (loadPrebuiltMap) _game.Var_d76a_EarthMap = true;
                     Thread.Sleep(50);
                 }
                 Console.WriteLine($"[LandMass] Carte générée avec LandMass={_game.Var_7ef6_PlanetLandMass} Age={_game.Var_7efc_PlanetAge}");

@@ -204,6 +204,19 @@ namespace OpenCivOne
 		public int[] Array_d4ce = new int[320];
 		public bool Var_d760_HumanPlayerMessageFlag = false;
 		public bool Var_d76a_EarthMap = false;
+
+		// Not part of the original game: when set alongside Var_d76a_EarthMap, MapInitAndIntro
+		// loads this terrain grid (via MapManagement.LoadCustomMap) instead of the real
+		// MAP.PIC — see OpenCivOne.Server.Maps.CustomMapFormat / NewGameOptions.CustomMap.
+		public TerrainTypeEnum[,]? CustomMapGrid = null;
+
+		// Not part of the original game: per-nationality start tile override for a custom
+		// map, indexed like Array_35da (by NationalityID, 16 entries). Unlike Array_35da
+		// (always fully populated for real Earth games), entries here are null by default —
+		// StartGameMenu.cs only overrides the settler's site-search result for nationalities
+		// the map actually specifies a position for; everyone else keeps the normal random
+		// placement. Populated from CustomMapData.StartPositions in GameSession.cs.
+		public GPoint?[] CustomMapStartPositions = new GPoint?[16];
 		public int Var_deba = 0;
 		public int Var_d7f0 = 0;
 		public bool Var_d806_DebugFlag = false;

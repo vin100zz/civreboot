@@ -64,7 +64,10 @@ namespace OpenCivOne
 
 			if (this.parent.Var_d76a_EarthMap)
 			{
-				this.map.LoadEarthMap();
+				if (this.parent.CustomMapGrid != null)
+					this.map.LoadCustomMap(this.parent.CustomMapGrid);
+				else
+					this.map.LoadEarthMap();
 			}
 			else
 			{
