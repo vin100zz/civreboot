@@ -1243,9 +1243,13 @@ namespace OpenCivOne
 
 						if (city.CurrentProductionID == -1 && city.ShieldsCount != 0)
 						{
+							// CurrentProductionID == -1 means building the Palace (GetImprovementType(1),
+							// negative-index-encodes-improvement convention — see the sibling block
+							// above). This indexed Units[-1] instead of GetImprovementType(1), crashing
+							// with IndexOutOfRangeException the moment any city started a Palace.
 							// Instruction address 0x1d12:0x2591, size: 5
 							local_cc = this.parent.GameTools.F0_2dc4_007c_CheckValueRange(
-								(this.parent.GameData.Units[city.CurrentProductionID].Cost * local_4a) - city.ShieldsCount,
+								(this.parent.GameData.GetImprovementType(-city.CurrentProductionID).Cost * local_4a) - city.ShieldsCount,
 								0, this.parent.GameData.Players[this.Var_6548_PlayerID].Coins / 3);
 						}
 
