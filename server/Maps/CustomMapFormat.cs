@@ -89,7 +89,9 @@ namespace OpenCivOne.Server.Maps
                 throw new FileNotFoundException($"Custom map '{mapName}' not found at {path}");
 
             using var doc = JsonDocument.Parse(File.ReadAllText(path));
-            var rowsElement = doc.RootElement.GetProperty("rows");
+            if (!doc.RootElement.TryGetProperty("rows", out var rowsElement))
+                throw new InvalidDataException(
+                    $"Custom map '{mapName}' has no \"rows\" array — see server/Maps/test-island.json for the expected format.");
             var rows = rowsElement.EnumerateArray().Select(e => e.GetString() ?? "").ToArray();
 
             var grid = new TerrainTypeEnum[Width, Height];

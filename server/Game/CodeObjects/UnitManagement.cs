@@ -1606,6 +1606,13 @@ namespace OpenCivOne
 						int newY = y + j;
 						int cityID;
 
+						// Y doesn't wrap (unlike X, handled above by AdjustXPosition) — near the
+						// poles this range can run off the 50-row map, indexing MapVisibility
+						// out of bounds. Sibling function F0_1866_18d0_IsEnemyUnitNear already
+						// guards equivalent lookups with this same validity check.
+						if (!this.parent.MapManagement.F0_2aea_1326_ValidateMapCoordinates(newX, newY))
+							continue;
+
 						if ((this.parent.GameData.MapVisibility[newX, newY] & playerBitmask) != 0 &&
 							mapManagement.F0_2aea_1585_GetVisibleTerrainImprovements(newX, newY).HasFlag(TerrainImprovementFlagsEnum.City) &&
 							(cityID = this.parent.GameTools.F0_2dc4_00ba_GetCityByLocation(newX, newY)) != -1 &&

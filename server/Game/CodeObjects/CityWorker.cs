@@ -607,7 +607,11 @@ namespace OpenCivOne
 						}
 					}
 
-					if (local_108 != -1)
+					// Inverted condition bug: local_108 == -1 means the search above found no
+					// available tile to work, so there's nothing left to assign — break instead
+					// of falling through to Arr_3e[-1]. The near-identical loop right below
+					// (line ~670) has the correct "if (local_108 == -1) break;" form.
+					if (local_108 == -1)
 						break;
 
 					Arr_3e[local_108] = 1;
