@@ -298,10 +298,65 @@ body, #app {
   color: #e0d0a0;
   font-weight: bold;
 }
+#city-list li.city-foreign .city-name {
+  color: #a08858;
+  font-weight: normal;
+}
+#city-list li.city-foreign .city-stats {
+  opacity: 0.75;
+}
 #city-list .city-stats {
   margin-top: 2px;
   white-space: pre-line;
   color: #a08858;
+}
+
+.city-popup {
+  position: fixed;
+  background: #1a1408;
+  border: 2px solid #8b6914;
+  min-width: 280px;
+  font-family: monospace;
+  font-size: 17px;
+  line-height: 1.5;
+  color: #d8c090;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  z-index: 200;
+  user-select: none;
+}
+.city-popup .popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #2a2010;
+  border-bottom: 1px solid #4a3010;
+  padding: 8px 10px;
+  cursor: grab;
+  color: #f0c040;
+  font-weight: bold;
+  font-size: 19px;
+}
+.city-popup .popup-header:active { cursor: grabbing; }
+.city-popup .popup-close {
+  background: none;
+  border: none;
+  color: #c0a060;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.city-popup .popup-close:hover { color: #f0c040; }
+.city-popup .popup-body {
+  padding: 10px 14px;
+  white-space: pre-line;
+}
+.city-popup .popup-body .city-owner {
+  color: #b09868;
+  font-style: italic;
+  margin-bottom: 4px;
+  font-size: 15px;
 }
 
 #status-panel {

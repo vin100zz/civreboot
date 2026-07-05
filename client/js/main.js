@@ -84,25 +84,151 @@ function updateUI(state) {
     renderCivs(state);
 
     cityList.innerHTML = '';
-    state.cities?.filter(c => c.playerID === state.humanPlayerID).forEach(c => {
+    const playerByID = new Map((state.players || []).map(p => [p.id, p]));
+    const cities = (state.cities || []).slice().sort((a, b) => {
+        // Own cities first, then grouped by civilization, then alphabetically.
+        const aMine = a.playerID === state.humanPlayerID ? 0 : 1;
+        const bMine = b.playerID === state.humanPlayerID ? 0 : 1;
+        if (aMine !== bMine) return aMine - bMine;
+        if (a.playerID !== b.playerID) return a.playerID - b.playerID;
+        return a.name.localeCompare(b.name);
+    });
+    cities.forEach(c => {
         const li = document.createElement('li');
+        const isMine = c.playerID === state.humanPlayerID;
+        if (!isMine) li.classList.add('city-foreign');
 
         const nameEl = document.createElement('div');
         nameEl.className = 'city-name';
-        nameEl.textContent = `${c.name} (${c.size})`;
+        const owner = playerByID.get(c.playerID);
+        const ownerLabel = !isMine && owner?.nationality ? ` — ${owner.nationality}` : '';
+        nameEl.textContent = `${c.name} (${c.size})${ownerLabel}`;
         li.appendChild(nameEl);
 
         const statsEl = document.createElement('div');
         statsEl.className = 'city-stats';
-        const netStr = c.food.net >= 0 ? `+${c.food.net}` : `${c.food.net}`;
-        statsEl.textContent =
-            `🌾 ${c.food.produced}▲ ${c.food.consumed}▼ (${netStr})  [${c.food.stored}/${c.food.neededToGrow}]\n` +
-            `🔨 ${c.shields.producedPerTurn}/turn  ${c.shields.current || '—'} [${c.shields.stored}/${c.shields.cost}]\n` +
-            `💰${c.trade.gold} 🔬${c.trade.science} 🎭${c.trade.luxury}  👥${c.unitsSupported}`;
+        statsEl.textContent = formatCityStats(c);
         li.appendChild(statsEl);
 
         cityList.appendChild(li);
     });
+
+    updateCityPopups(state);
+}
+
+// Shared by the sidebar city list and the draggable city popups.
+function formatCityStats(c) {
+    const netStr = c.food.net >= 0 ? `+${c.food.net}` : `${c.food.net}`;
+    return `🌾 ${c.food.produced}▲ ${c.food.consumed}▼ (${netStr})  [${c.food.stored}/${c.food.neededToGrow}]\n` +
+        `🔨 ${c.shields.producedPerTurn}/turn  ${c.shields.current || '—'} [${c.shields.stored}/${c.shields.cost}]\n` +
+        `💰${c.trade.gold} 🔬${c.trade.science} 🎭${c.trade.luxury}  👥${c.unitsSupported}`;
+}
+
+// --- Draggable city info popups ------------------------------------------
+// Keyed by city id. Each entry tracks its DOM element so updateCityPopups()
+// can refresh the content (or remove the popup if the city was destroyed)
+// on every state poll, and openCityPopup() can re-focus an already-open one
+// instead of creating a duplicate.
+const cityPopups = new Map();
+
+function makeDraggable(popup, handle) {
+    let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+    handle.addEventListener('mousedown', e => {
+        if (e.target.closest('.popup-close')) return;
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = popup.getBoundingClientRect();
+        startLeft = rect.left;
+        startTop = rect.top;
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        const newLeft = startLeft + (e.clientX - startX);
+        const newTop = startTop + (e.clientY - startY);
+        popup.style.left = `${Math.max(0, newLeft)}px`;
+        popup.style.top = `${Math.max(0, newTop)}px`;
+    });
+
+    window.addEventListener('mouseup', () => { dragging = false; });
+}
+
+function openCityPopup(cityID, clientX, clientY) {
+    const existing = cityPopups.get(cityID);
+    if (existing) {
+        // Already open — bring it in front and give a little visual nudge
+        // rather than opening a duplicate.
+        document.body.appendChild(existing);
+        return;
+    }
+
+    const state = renderer.state;
+    const city = state?.cities?.find(c => c.id === cityID);
+    if (!city) return;
+
+    const popup = document.createElement('div');
+    popup.className = 'city-popup';
+    // Cascade slightly so multiple popups opened near the same spot don't
+    // stack exactly on top of each other.
+    const offset = (cityPopups.size % 6) * 18;
+    popup.style.left = `${(clientX ?? 200) + offset}px`;
+    popup.style.top = `${(clientY ?? 200) + offset}px`;
+
+    const header = document.createElement('div');
+    header.className = 'popup-header';
+    const titleEl = document.createElement('span');
+    header.appendChild(titleEl);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'popup-close';
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', () => {
+        popup.remove();
+        cityPopups.delete(cityID);
+    });
+    header.appendChild(closeBtn);
+    popup.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'popup-body';
+    const ownerEl = document.createElement('div');
+    ownerEl.className = 'city-owner';
+    const statsEl = document.createElement('div');
+    body.appendChild(ownerEl);
+    body.appendChild(statsEl);
+    popup.appendChild(body);
+
+    makeDraggable(popup, header);
+    document.body.appendChild(popup);
+    cityPopups.set(cityID, popup);
+
+    // Fill in current content (also refreshed by updateCityPopups on every poll).
+    refreshCityPopup(popup, city, state);
+}
+
+function refreshCityPopup(popup, city, state) {
+    const owner = state.players?.find(p => p.id === city.playerID);
+    const isMine = city.playerID === state.humanPlayerID;
+    popup.querySelector('.popup-header span').textContent = `${city.name} (${city.size})`;
+    const ownerEl = popup.querySelector('.city-owner');
+    ownerEl.textContent = isMine ? '' : (owner?.nationality ?? `Player ${city.playerID}`);
+    ownerEl.style.display = isMine ? 'none' : 'block';
+    popup.querySelector('.popup-body > div:last-child').textContent = formatCityStats(city);
+}
+
+function updateCityPopups(state) {
+    for (const [cityID, popup] of cityPopups) {
+        const city = state.cities?.find(c => c.id === cityID);
+        if (!city) {
+            // City was destroyed/captured — drop the stale popup.
+            popup.remove();
+            cityPopups.delete(cityID);
+            continue;
+        }
+        refreshCityPopup(popup, city, state);
+    }
 }
 
 // Builds a "label [====    ] n/total" row. Used for both the overall
@@ -431,4 +557,7 @@ canvas.addEventListener('click', e => {
     if (renderer.consumeDragFlag()) return; // ignore click-to-inspect after a map drag
     const tile = renderer.clickToTile(e.clientX, e.clientY);
     tileInfo(tile.x, tile.y);
+
+    const city = renderer.state?.cities?.find(c => c.x === tile.x && c.y === tile.y);
+    if (city) openCityPopup(city.id, e.clientX, e.clientY);
 });
