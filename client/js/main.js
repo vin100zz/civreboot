@@ -105,6 +105,34 @@ function updateUI(state) {
     });
 }
 
+// Builds a "label [====    ] n/total" row. Used for both the overall
+// technologies-discovered bar and the current-research bar.
+function buildProgressRow(label, value, total, fillClass) {
+    const row = document.createElement('div');
+    row.className = 'progress-row';
+
+    const labelEl = document.createElement('span');
+    labelEl.className = 'progress-label';
+    labelEl.textContent = label;
+    row.appendChild(labelEl);
+
+    const track = document.createElement('div');
+    track.className = 'progress-track';
+    const fill = document.createElement('div');
+    fill.className = 'progress-fill' + (fillClass ? ' ' + fillClass : '');
+    const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+    fill.style.width = `${pct}%`;
+    track.appendChild(fill);
+    row.appendChild(track);
+
+    const fraction = document.createElement('span');
+    fraction.className = 'progress-fraction';
+    fraction.textContent = `${value}/${total}`;
+    row.appendChild(fraction);
+
+    return row;
+}
+
 function renderCivs(state) {
     if (!civsList) return;
     civsList.innerHTML = '';
@@ -121,18 +149,26 @@ function renderCivs(state) {
 
         const statsEl = document.createElement('div');
         statsEl.className = 'civ-stats';
-        // AI civs (and the human before their first choice) don't have a named
-        // research target in the original game — it's only revealed the instant
-        // research completes — so show progress alone in that case.
-        const researchStr = p.research
-            ? (p.research.name
-                ? `${p.research.name} (${p.research.progress}/${p.research.total})`
-                : `? (${p.research.progress}/${p.research.total})`)
-            : '—';
-        statsEl.textContent =
-            `💰${p.coins}  Tax${p.taxRate}% Sci${p.scienceRate}% Lux${p.luxuryRate}%\n` +
-            `🔬 ${researchStr}`;
+        statsEl.textContent = `💰${p.coins}  Tax${p.taxRate}% Sci${p.scienceRate}% Lux${p.luxuryRate}%`;
         row.appendChild(statsEl);
+
+        const r = p.research;
+        if (r) {
+            // Overall progress: how many of the 68 real technologies this civ has.
+            row.appendChild(buildProgressRow('🔬 Total', r.discoveredCount, r.totalTechCount));
+
+            // AI civs (and the human before their first choice) don't have a named
+            // research target in the original game — it's only revealed the instant
+            // research completes — so the bar shows progress without a name in that case.
+            row.appendChild(buildProgressRow(r.name || 'En cours', r.progress, r.total, 'research-fill'));
+
+            if (r.lastDiscovered) {
+                const lastEl = document.createElement('div');
+                lastEl.className = 'last-discovered';
+                lastEl.textContent = `✓ ${r.lastDiscovered}`;
+                row.appendChild(lastEl);
+            }
+        }
 
         civsList.appendChild(row);
     });

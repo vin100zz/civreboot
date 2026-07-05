@@ -232,7 +232,6 @@ body, #app {
   flex-direction: column;
   gap: 6px;
   font-size: 11px;
-  max-height: 220px;
   overflow-y: auto;
 }
 .civ-row {
@@ -250,6 +249,39 @@ body, #app {
   white-space: pre-line;
 }
 .civ-row.civ-human { border-color: #4a8030; }
+
+.civ-row .progress-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+}
+.civ-row .progress-label {
+  color: #a08858;
+  flex-shrink: 0;
+  width: 46px;
+}
+.civ-row .progress-track {
+  flex: 1;
+  height: 7px;
+  background: #2a2010;
+  border: 1px solid #4a3010;
+}
+.civ-row .progress-fill {
+  height: 100%;
+  background: #f0c040;
+}
+.civ-row .progress-fill.research-fill { background: #60c0f0; }
+.civ-row .progress-fraction {
+  color: #a08858;
+  flex-shrink: 0;
+  font-size: 10px;
+}
+.civ-row .last-discovered {
+  color: #80c060;
+  margin-top: 2px;
+  font-style: italic;
+}
 
 #city-list {
   list-style: none;

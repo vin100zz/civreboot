@@ -7,14 +7,14 @@ namespace OpenCivOne.Server
 {
     public static class StateSerializer
     {
-        public static string Serialize(OpenCivOneGame game, string pendingAction = "")
+        public static string Serialize(OpenCivOneGame game, string?[]? lastDiscoveredTech = null, string pendingAction = "")
         {
             var gd = game.GameData;
 
             var tiles = BuildTileArray(game);
             var cities = BuildCities(game);
             var units = BuildUnits(gd);
-            var players = BuildPlayers(game);
+            var players = BuildPlayers(game, lastDiscoveredTech);
 
             var state = new
             {
@@ -309,7 +309,12 @@ namespace OpenCivOne.Server
             return list.ToArray();
         }
 
-        private static object[] BuildPlayers(OpenCivOneGame game)
+        // Real, one-time-discoverable technologies. TechnologyAdvances has 73 entries;
+        // the last 5 (FutureTechnology1-5) are the repeatable post-game techs, not part
+        // of a finite "total" — see GameData.cs's technologyAdvanceTypes list.
+        private const int RealTechnologyCount = 68;
+
+        private static object[] BuildPlayers(OpenCivOneGame game, string?[]? lastDiscoveredTech)
         {
             var gd = game.GameData;
             var list = new List<object>();
@@ -328,7 +333,10 @@ namespace OpenCivOne.Server
                 // engine only picks (and reveals) which tech they get at the moment research
                 // completes, never before — so `name` stays null for AI (and for the human
                 // before their first choice). Progress/total are always shown regardless, since
-                // they don't depend on a chosen target.
+                // they don't depend on a chosen target. discoveredCount/totalTechCount and
+                // lastDiscovered (see TechDiscoveryTracker) let the client show an overall
+                // "N/68 technologies" bar and name the last one found even when there's no
+                // named current target to display.
                 int varD2de = gd.Year < 0 ? 0 : Math.Clamp(gd.MaximumTechnologyCount - (gd.TurnCount / 9), 0, 6);
                 int total = Math.Max((p.DiscoveredTechnologyCount * (gd.Year < 0 ? 1 : 2)) *
                     Math.Max((gd.DifficultyLevel * 2) + varD2de + 6, 11 - p.DiscoveredTechnologyCount), 1);
@@ -340,6 +348,9 @@ namespace OpenCivOne.Server
                     name = researchName,
                     progress = Math.Clamp((int)p.ResearchProgress, 0, total),
                     total,
+                    discoveredCount = (int)p.DiscoveredTechnologyCount,
+                    totalTechCount = RealTechnologyCount,
+                    lastDiscovered = lastDiscoveredTech?[i],
                 };
 
                 int govIdx = Math.Clamp((int)p.GovernmentType, 0, 5);

@@ -11,6 +11,7 @@ namespace OpenCivOne.Server
 
         private readonly OpenCivOneGame _game;
         private readonly CancellationTokenSource _cts = new();
+        private readonly TechDiscoveryTracker _techTracker = new();
 
         public GameSession(string civPath, NewGameOptions? options = null)
         {
@@ -131,7 +132,13 @@ namespace OpenCivOne.Server
             autoStart.Start();
         }
 
-        public string GetState() => StateSerializer.Serialize(_game);
+        private string Serialize()
+        {
+            _techTracker.Update(_game);
+            return StateSerializer.Serialize(_game, _techTracker.LastDiscovered);
+        }
+
+        public string GetState() => Serialize();
 
         public string RevealMap()
         {
@@ -140,7 +147,7 @@ namespace OpenCivOne.Server
             for (int x = 0; x < 80; x++)
                 for (int y = 0; y < 50; y++)
                     gd.MapVisibility[x, y] |= bit;
-            return StateSerializer.Serialize(_game);
+            return Serialize();
         }
 
         public string InjectAndWait(PlayerAction action)
@@ -179,7 +186,7 @@ namespace OpenCivOne.Server
                     Thread.Sleep(10);
                 Thread.Sleep(400);
             }
-            return StateSerializer.Serialize(_game);
+            return Serialize();
         }
 
         private void InjectAction(PlayerAction action)
