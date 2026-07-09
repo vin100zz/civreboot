@@ -17,7 +17,6 @@ const turnEl   = document.getElementById('turn-info');
 const yearEl   = document.getElementById('year-info');
 const playerEl = document.getElementById('player-info');
 const unitEl   = document.getElementById('unit-info');
-const cityList = document.getElementById('city-list');
 const civsList = document.getElementById('civs-list');
 
 let busy = false;
@@ -82,46 +81,7 @@ function updateUI(state) {
     }
 
     renderCivs(state);
-
-    cityList.innerHTML = '';
-    const playerByID = new Map((state.players || []).map(p => [p.id, p]));
-    const cities = (state.cities || []).slice().sort((a, b) => {
-        // Own cities first, then grouped by civilization, then alphabetically.
-        const aMine = a.playerID === state.humanPlayerID ? 0 : 1;
-        const bMine = b.playerID === state.humanPlayerID ? 0 : 1;
-        if (aMine !== bMine) return aMine - bMine;
-        if (a.playerID !== b.playerID) return a.playerID - b.playerID;
-        return a.name.localeCompare(b.name);
-    });
-    cities.forEach(c => {
-        const li = document.createElement('li');
-        const isMine = c.playerID === state.humanPlayerID;
-        if (!isMine) li.classList.add('city-foreign');
-
-        const nameEl = document.createElement('div');
-        nameEl.className = 'city-name';
-        const owner = playerByID.get(c.playerID);
-        const ownerLabel = !isMine && owner?.nationality ? ` — ${owner.nationality}` : '';
-        nameEl.textContent = `${c.name} (${c.size})${ownerLabel}`;
-        li.appendChild(nameEl);
-
-        const statsEl = document.createElement('div');
-        statsEl.className = 'city-stats';
-        statsEl.textContent = formatCityStats(c);
-        li.appendChild(statsEl);
-
-        cityList.appendChild(li);
-    });
-
     updateCityPopups(state);
-}
-
-// Shared by the sidebar city list and the draggable city popups.
-function formatCityStats(c) {
-    const netStr = c.food.net >= 0 ? `+${c.food.net}` : `${c.food.net}`;
-    return `🌾 ${c.food.produced}▲ ${c.food.consumed}▼ (${netStr})  [${c.food.stored}/${c.food.neededToGrow}]\n` +
-        `🔨 ${c.shields.producedPerTurn}/turn  ${c.shields.current || '—'} [${c.shields.stored}/${c.shields.cost}]\n` +
-        `💰${c.trade.gold} 🔬${c.trade.science} 🎭${c.trade.luxury}  👥${c.unitsSupported}`;
 }
 
 // --- Draggable city info popups ------------------------------------------
@@ -135,7 +95,12 @@ function makeDraggable(popup, handle) {
     let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
 
     handle.addEventListener('mousedown', e => {
-        if (e.target.closest('.popup-close')) return;
+        // e.target can be a Text node (e.g. clicking directly on the "✕"
+        // glyph) rather than the button Element — Text has no .closest(),
+        // so calling it unguarded throws and silently breaks the listener,
+        // which was blocking the close button from working.
+        const targetEl = e.target.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
+        if (targetEl?.closest('.popup-close')) return;
         dragging = true;
         startX = e.clientX;
         startY = e.clientY;
@@ -193,11 +158,6 @@ function openCityPopup(cityID, clientX, clientY) {
 
     const body = document.createElement('div');
     body.className = 'popup-body';
-    const ownerEl = document.createElement('div');
-    ownerEl.className = 'city-owner';
-    const statsEl = document.createElement('div');
-    body.appendChild(ownerEl);
-    body.appendChild(statsEl);
     popup.appendChild(body);
 
     makeDraggable(popup, header);
@@ -206,16 +166,135 @@ function openCityPopup(cityID, clientX, clientY) {
 
     // Fill in current content (also refreshed by updateCityPopups on every poll).
     refreshCityPopup(popup, city, state);
+
+    // The popup's real size depends on its content (buildings list, etc.), so
+    // it can only be measured once filled in — clamp it back on-screen if the
+    // click was near the bottom/right edge and it would otherwise open
+    // partially (or fully) off-screen.
+    clampPopupToViewport(popup);
+}
+
+function clampPopupToViewport(popup) {
+    const margin = 8;
+    const rect = popup.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.top;
+    if (rect.right > window.innerWidth - margin) left -= rect.right - (window.innerWidth - margin);
+    if (rect.bottom > window.innerHeight - margin) top -= rect.bottom - (window.innerHeight - margin);
+    left = Math.max(margin, left);
+    top = Math.max(margin, top);
+    popup.style.left = `${left}px`;
+    popup.style.top = `${top}px`;
+}
+
+// A row of small squares depicting produced vs. consumed: consumed amount
+// first, then (if there's a surplus) a gap and the surplus squares — all in
+// `squareClass`'s color. If consumption exceeds production, the shortfall is
+// drawn instead as extra squares in the "deficit" (black) color, no gap.
+function buildResourceRow(produced, consumed, squareClass) {
+    const row = document.createElement('div');
+    row.className = 'resource-row';
+
+    const squares = document.createElement('div');
+    squares.className = 'resource-squares';
+    const net = produced - consumed;
+
+    const addSquares = (n, cls) => {
+        for (let i = 0; i < n; i++) {
+            const sq = document.createElement('span');
+            sq.className = `resource-square ${cls}`;
+            squares.appendChild(sq);
+        }
+    };
+
+    if (net >= 0) {
+        addSquares(consumed, squareClass);
+        if (net > 0) {
+            const gap = document.createElement('span');
+            gap.className = 'square-gap';
+            squares.appendChild(gap);
+            addSquares(net, squareClass);
+        }
+    } else {
+        addSquares(Math.max(0, produced), squareClass);
+        addSquares(-net, 'deficit');
+    }
+    row.appendChild(squares);
+
+    const balance = document.createElement('span');
+    balance.className = 'resource-balance ' + (net >= 0 ? 'positive' : 'negative');
+    balance.textContent = net >= 0 ? `(+${net})` : `(${net})`;
+    row.appendChild(balance);
+
+    return row;
+}
+
+function popupSectionTitle(text) {
+    const el = document.createElement('div');
+    el.className = 'popup-section-title';
+    el.textContent = text;
+    return el;
+}
+
+function buildCityPopupBody(city, state) {
+    const frag = document.createDocumentFragment();
+    const owner = state.players?.find(p => p.id === city.playerID);
+    const isMine = city.playerID === state.humanPlayerID;
+
+    if (!isMine) {
+        const ownerEl = document.createElement('div');
+        ownerEl.className = 'city-owner';
+        ownerEl.textContent = owner?.nationality ?? `Player ${city.playerID}`;
+        frag.appendChild(ownerEl);
+    }
+
+    // --- Food ---
+    frag.appendChild(popupSectionTitle('🌾 Nourriture'));
+    frag.appendChild(buildResourceRow(city.food.produced, city.food.consumed, 'food'));
+    frag.appendChild(buildProgressRow('Réserve', city.food.stored, Math.max(1, city.food.neededToGrow)));
+
+    // --- Production ---
+    frag.appendChild(popupSectionTitle('🔨 Production'));
+    frag.appendChild(buildResourceRow(city.shields.produced, city.shields.consumed, 'shields'));
+    const currentEl = document.createElement('div');
+    currentEl.className = 'popup-subtext';
+    currentEl.textContent = city.shields.current || '(rien en construction)';
+    frag.appendChild(currentEl);
+    if (city.shields.cost > 0) {
+        frag.appendChild(buildProgressRow('Stock', city.shields.stored, city.shields.cost));
+    }
+    if (city.improvements?.length) {
+        const label = document.createElement('div');
+        label.className = 'popup-buildings-label';
+        label.textContent = '🏛 Bâtiments';
+        frag.appendChild(label);
+
+        const list = document.createElement('ul');
+        list.className = 'popup-buildings';
+        city.improvements.forEach(name => {
+            const li = document.createElement('li');
+            li.textContent = name;
+            list.appendChild(li);
+        });
+        frag.appendChild(list);
+    }
+
+    // --- Trade ---
+    frag.appendChild(popupSectionTitle('💰 Commerce'));
+    frag.appendChild(buildResourceRow(city.trade.produced, city.trade.consumed, 'trade'));
+    const splitEl = document.createElement('div');
+    splitEl.className = 'popup-subtext';
+    splitEl.textContent = `💰${city.trade.gold}   🔬${city.trade.science}   🎭${city.trade.luxury}`;
+    frag.appendChild(splitEl);
+
+    return frag;
 }
 
 function refreshCityPopup(popup, city, state) {
-    const owner = state.players?.find(p => p.id === city.playerID);
-    const isMine = city.playerID === state.humanPlayerID;
     popup.querySelector('.popup-header span').textContent = `${city.name} (${city.size})`;
-    const ownerEl = popup.querySelector('.city-owner');
-    ownerEl.textContent = isMine ? '' : (owner?.nationality ?? `Player ${city.playerID}`);
-    ownerEl.style.display = isMine ? 'none' : 'block';
-    popup.querySelector('.popup-body > div:last-child').textContent = formatCityStats(city);
+    const body = popup.querySelector('.popup-body');
+    body.innerHTML = '';
+    body.appendChild(buildCityPopupBody(city, state));
 }
 
 function updateCityPopups(state) {

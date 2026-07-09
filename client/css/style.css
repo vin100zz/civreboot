@@ -250,29 +250,31 @@ body, #app {
 }
 .civ-row.civ-human { border-color: #4a8030; }
 
-.civ-row .progress-row {
+/* Generic progress-bar row ("label [====----] n/total"), used by the civ
+   panel (tech bars) and the city popup (food/production reserves). */
+.progress-row {
   display: flex;
   align-items: center;
   gap: 5px;
   margin-top: 3px;
 }
-.civ-row .progress-label {
+.progress-label {
   color: #a08858;
   flex-shrink: 0;
   width: 46px;
 }
-.civ-row .progress-track {
+.progress-track {
   flex: 1;
   height: 7px;
   background: #2a2010;
   border: 1px solid #4a3010;
 }
-.civ-row .progress-fill {
+.progress-fill {
   height: 100%;
   background: #f0c040;
 }
-.civ-row .progress-fill.research-fill { background: #60c0f0; }
-.civ-row .progress-fraction {
+.progress-fill.research-fill { background: #60c0f0; }
+.progress-fraction {
   color: #a08858;
   flex-shrink: 0;
   font-size: 10px;
@@ -281,34 +283,6 @@ body, #app {
   color: #80c060;
   margin-top: 2px;
   font-style: italic;
-}
-
-#city-list {
-  list-style: none;
-  font-size: 11px;
-  max-height: 260px;
-  overflow-y: auto;
-}
-#city-list li {
-  padding: 4px 0;
-  border-bottom: 1px solid #2a2010;
-  color: #c0a060;
-}
-#city-list .city-name {
-  color: #e0d0a0;
-  font-weight: bold;
-}
-#city-list li.city-foreign .city-name {
-  color: #a08858;
-  font-weight: normal;
-}
-#city-list li.city-foreign .city-stats {
-  opacity: 0.75;
-}
-#city-list .city-stats {
-  margin-top: 2px;
-  white-space: pre-line;
-  color: #a08858;
 }
 
 .city-popup {
@@ -350,7 +324,8 @@ body, #app {
 .city-popup .popup-close:hover { color: #f0c040; }
 .city-popup .popup-body {
   padding: 10px 14px;
-  white-space: pre-line;
+  max-height: 65vh;
+  overflow-y: auto;
 }
 .city-popup .popup-body .city-owner {
   color: #b09868;
@@ -358,6 +333,77 @@ body, #app {
   margin-bottom: 4px;
   font-size: 15px;
 }
+
+.city-popup .popup-section-title {
+  color: #f0c040;
+  font-weight: bold;
+  margin-top: 12px;
+  border-top: 1px solid #4a3010;
+  padding-top: 10px;
+}
+.city-popup .popup-section-title:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
+
+.city-popup .resource-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 6px 0 4px;
+}
+.city-popup .resource-squares {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.city-popup .resource-square {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+.city-popup .resource-square.food { background: #f0c040; }
+.city-popup .resource-square.shields { background: #aaa; }
+.city-popup .resource-square.trade { background: #f4f4f4; }
+.city-popup .resource-square.deficit {
+  background: #000;
+  border: 1px solid #666;
+}
+.city-popup .square-gap { width: 10px; flex-shrink: 0; }
+.city-popup .resource-balance { margin-left: 8px; font-weight: bold; }
+.city-popup .resource-balance.positive { color: #80e080; }
+.city-popup .resource-balance.negative { color: #e08080; }
+
+.city-popup .popup-subtext {
+  color: #d8c090;
+  margin: 2px 0 6px;
+}
+.city-popup .popup-buildings-label {
+  color: #d8c090;
+  margin-top: 8px;
+}
+.city-popup .popup-buildings {
+  list-style: none;
+  color: #a08858;
+  margin-top: 2px;
+  font-size: 14px;
+}
+.city-popup .popup-buildings li {
+  padding: 1px 0 1px 18px;
+  position: relative;
+}
+.city-popup .popup-buildings li::before {
+  content: '•';
+  position: absolute;
+  left: 4px;
+  color: #6a5020;
+}
+
+/* The popup's font is much larger than the civ panel's, so its progress bars
+   need to scale up to match instead of using the civ panel's compact sizing. */
+.city-popup .progress-row { gap: 8px; margin-top: 4px; }
+.city-popup .progress-label { width: auto; margin-right: 2px; }
+.city-popup .progress-track { height: 12px; }
+.city-popup .progress-fraction { font-size: 14px; }
 
 #status-panel {
   margin-top: auto;

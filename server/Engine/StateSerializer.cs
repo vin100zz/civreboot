@@ -83,6 +83,15 @@ namespace OpenCivOne.Server
 
                 var economy = ComputeCityEconomy(game, i);
 
+                // Buildings already completed in this city (Wonders included — both are
+                // tracked in the same City.Improvements set). Sorted by name since
+                // BHashSet doesn't guarantee build order.
+                var improvements = city.Improvements
+                    .Select(imp => gd.GetImprovementType((int)imp).Name.TrimEnd(' ', '\x0'))
+                    .Where(n => n.Length > 0 && n != "NONE")
+                    .OrderBy(n => n)
+                    .ToArray();
+
                 list.Add(new
                 {
                     id = i,
@@ -92,6 +101,7 @@ namespace OpenCivOne.Server
                     size = city.ActualSize,
                     playerID = city.PlayerID,
                     production = city.CurrentProductionID,
+                    improvements,
                     food = new
                     {
                         stored = (int)city.FoodCount,
@@ -102,13 +112,18 @@ namespace OpenCivOne.Server
                     },
                     shields = new
                     {
-                        producedPerTurn = economy.ShieldsProduced,
+                        produced = economy.ShieldsProduced,
+                        consumed = economy.ShieldsConsumedByUnits,
+                        net = economy.ShieldsProduced - economy.ShieldsConsumedByUnits,
                         stored = (int)city.ShieldsCount,
                         current = economy.ProductionName,
                         cost = economy.ProductionCost,
                     },
                     trade = new
                     {
+                        produced = economy.TradeProduced,
+                        consumed = economy.TradeLostToCorruption,
+                        net = economy.TradeProduced - economy.TradeLostToCorruption,
                         gold = economy.Gold,
                         science = economy.Science,
                         luxury = economy.Luxury,
@@ -125,8 +140,11 @@ namespace OpenCivOne.Server
             public int FoodConsumed { get; init; }
             public int FoodNeededToGrow { get; init; }
             public int ShieldsProduced { get; init; }
+            public int ShieldsConsumedByUnits { get; init; }
             public string ProductionName { get; init; }
             public int ProductionCost { get; init; }
+            public int TradeProduced { get; init; }
+            public int TradeLostToCorruption { get; init; }
             public int Gold { get; init; }
             public int Science { get; init; }
             public int Luxury { get; init; }
@@ -180,11 +198,24 @@ namespace OpenCivOne.Server
             int settlerCost = player.GovernmentType <= 1 ? 1 : 2; // Anarchy/Despotism cheaper
             int settlerCount = 0;
             int unitsSupported = 0;
+            // Shield upkeep for supported units (CityWorker.cs ~line 1762-1783: Var_deb8/
+            // Var_d2f6). Each city gives ActualSize free unit-slots (Diplomats/Caravans never
+            // count); a unit beyond that always costs 1 shield/turn. Units *within* the free
+            // slots are normally free too — but only under Anarchy/Despotism (GovernmentType
+            // 0-1): Monarchy and up bill every supported unit 1 shield/turn, free slots or not.
+            int shieldUpkeep = 0;
+            int supportedIndex = 0;
             foreach (var unit in player.Units)
             {
                 if (unit.UnitType == UnitTypeEnum.None || unit.HomeCityID != cityID) continue;
                 unitsSupported++;
                 if (unit.UnitType == UnitTypeEnum.Settler) settlerCount++;
+
+                if (unit.UnitType == UnitTypeEnum.Diplomat || unit.UnitType == UnitTypeEnum.Caravan) continue;
+                supportedIndex++;
+                bool withinFreeLimit = supportedIndex <= city.ActualSize;
+                if (!withinFreeLimit || player.GovernmentType > 1)
+                    shieldUpkeep++;
             }
             int foodConsumed = (city.ActualSize * 2) + (settlerCount * settlerCost);
             int foodNeededToGrow = (city.ActualSize + 1) * growthMultiplier;
@@ -255,8 +286,11 @@ namespace OpenCivOne.Server
                 FoodConsumed = foodConsumed,
                 FoodNeededToGrow = foodNeededToGrow,
                 ShieldsProduced = shields,
+                ShieldsConsumedByUnits = shieldUpkeep,
                 ProductionName = productionName,
                 ProductionCost = productionCost,
+                TradeProduced = trade,
+                TradeLostToCorruption = corruption,
                 Gold = gold,
                 Science = scienceTotal,
                 Luxury = luxury,
