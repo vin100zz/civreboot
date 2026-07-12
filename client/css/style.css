@@ -373,6 +373,40 @@ body, #app {
 .city-popup .resource-balance.positive { color: #80e080; }
 .city-popup .resource-balance.negative { color: #e08080; }
 
+.city-popup .citizen-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  margin: 6px 0 4px;
+}
+.city-popup .citizen-face-wrap {
+  position: relative;
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+}
+.city-popup .citizen-face { width: 100%; height: 100%; display: block; }
+.city-popup .citizen-face-feature { stroke: #1a1408; fill: #1a1408; }
+
+/* Always in this order: happy (cyan) — content (blue) — unhappy (red) —
+   entertainers (white) — tax collectors (gray) — scientists (purple). */
+.city-popup .citizen-face-wrap.happy      .citizen-face-bg { fill: #30dede; }
+.city-popup .citizen-face-wrap.normal     .citizen-face-bg { fill: #4a90e0; }
+.city-popup .citizen-face-wrap.unhappy    .citizen-face-bg { fill: #e04848; }
+.city-popup .citizen-face-wrap.entertainer .citizen-face-bg { fill: #f2f2f2; }
+.city-popup .citizen-face-wrap.tax        .citizen-face-bg { fill: #999; }
+.city-popup .citizen-face-wrap.science    .citizen-face-bg { fill: #a060e0; }
+
+.city-popup .citizen-face-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  font-size: 10px;
+  line-height: 1;
+  text-shadow: 0 0 2px #000, 0 0 2px #000;
+}
+
 .city-popup .popup-subtext {
   color: #d8c090;
   margin: 2px 0 6px;

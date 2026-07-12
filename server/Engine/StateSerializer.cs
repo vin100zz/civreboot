@@ -129,6 +129,15 @@ namespace OpenCivOne.Server
                         luxury = economy.Luxury,
                     },
                     unitsSupported = economy.UnitsSupported,
+                    citizens = new
+                    {
+                        happy = economy.Happy,
+                        normal = economy.ContentNormal,
+                        unhappy = economy.Unhappy,
+                        taxCollectors = economy.TaxCollectors,
+                        scientists = economy.Scientists,
+                        entertainers = economy.Entertainers,
+                    },
                 });
             }
             return list.ToArray();
@@ -149,6 +158,12 @@ namespace OpenCivOne.Server
             public int Science { get; init; }
             public int Luxury { get; init; }
             public int UnitsSupported { get; init; }
+            public int Happy { get; init; }
+            public int ContentNormal { get; init; }
+            public int Unhappy { get; init; }
+            public int TaxCollectors { get; init; }
+            public int Scientists { get; init; }
+            public int Entertainers { get; init; }
         }
 
         // Recomputes a city's per-turn economy read-only, for display purposes.
@@ -159,9 +174,7 @@ namespace OpenCivOne.Server
         //
         // Known simplifications vs the exact in-game formula (kept out to limit scope/risk):
         //  - Trade routes / caravan bonuses between cities are not included.
-        //  - Manually-assigned specialist citizens (tax collectors/scientists/entertainers,
-        //    via City.Unknown[]) are not included in the gold/science/luxury totals.
-        // Both are typically small relative to a city's base output.
+        // Typically small relative to a city's base output.
         private static CityEconomy ComputeCityEconomy(OpenCivOneGame game, int cityID)
         {
             var gd = game.GameData;
@@ -184,6 +197,26 @@ namespace OpenCivOne.Server
                 food += cw.F0_1d12_6abc_GetCityResourceCount(city.PlayerID, cityID, x, y, CityResourceTypeEnum.Food);
                 shields += cw.F0_1d12_6abc_GetCityResourceCount(city.PlayerID, cityID, x, y, CityResourceTypeEnum.Production);
                 trade += cw.F0_1d12_6abc_GetCityResourceCount(city.PlayerID, cityID, x, y, CityResourceTypeEnum.Trade);
+            }
+
+            // --- Specialists (CityWorker.cs's SpecialWorkerFlags: 2 bits/slot, up to 8
+            // slots) --- Citizens not assigned to one of the 20 tile slots become
+            // specialists; each slot's 2-bit value is 1=TaxCollector, 2=Scientist,
+            // 3=Entertainer (see F0_1d12_6dcc_GetWorkerCountByType and its callers, which
+            // add +2 gold/science/luxury per matching specialist — CityWorker.cs ~line
+            // 1378-1384).
+            int workingCitizens = 0;
+            for (int j = 0; j < 20; j++)
+                if ((city.WorkerFlags & (uint)(1 << j)) != 0) workingCitizens++;
+            int specialistCount = Math.Max(0, city.ActualSize - workingCitizens);
+
+            int taxCollectors = 0, scientists = 0, entertainers = 0;
+            for (int slot = 0; slot < specialistCount && slot < 8; slot++)
+            {
+                int type = (city.SpecialWorkerFlags >> (slot * 2)) & 0x3;
+                if (type == 1) taxCollectors++;
+                else if (type == 2) scientists++;
+                else if (type == 3) entertainers++;
             }
 
             // --- Growth/production multiplier (CityWorker.cs ~line 217-230) ---
@@ -238,6 +271,12 @@ namespace OpenCivOne.Server
                 0, trade - luxury - corruption);
             int science = trade - luxury - gold - corruption;
 
+            // Specialist bonuses (+2 each) apply after the base trade split but before
+            // MarketPlace/Bank's +50%, matching CityWorker.cs's instruction order exactly.
+            gold += taxCollectors * 2;
+            science += scientists * 2;
+            luxury += entertainers * 2;
+
             if (city.HasImprovement(ImprovementEnum.MarketPlace)) { luxury += luxury / 2; gold += gold / 2; }
             if (city.HasImprovement(ImprovementEnum.Bank)) { luxury += luxury / 2; gold += gold / 2; }
 
@@ -280,6 +319,8 @@ namespace OpenCivOne.Server
                 productionCost = 0;
             }
 
+            var mood = ComputeCitizenMood(game, cityID, luxury, specialistCount);
+
             return new CityEconomy
             {
                 FoodProduced = food,
@@ -295,7 +336,149 @@ namespace OpenCivOne.Server
                 Science = scienceTotal,
                 Luxury = luxury,
                 UnitsSupported = unitsSupported,
+                Happy = mood.Happy,
+                ContentNormal = mood.Normal,
+                Unhappy = mood.Unhappy,
+                TaxCollectors = taxCollectors,
+                Scientists = scientists,
+                Entertainers = entertainers,
             };
+        }
+
+        private readonly struct CitizenMood
+        {
+            public int Happy { get; init; }
+            public int Normal { get; init; }
+            public int Unhappy { get; init; }
+        }
+
+        // Faithful reproduction of CityWorker.cs's happiness pass (~line 1420-1737 —
+        // F0_1d12_0045_ProcessCityState). The engine only keeps this as transient
+        // per-turn scratch state (Var_70e4 = unhappy, Var_70e2 = happy, reset and
+        // recomputed each time a city is processed), never stored per-city — so it has
+        // to be recomputed independently here to be readable at arbitrary times (e.g.
+        // when the player opens the city popup mid-turn), the same way ComputeCityEconomy
+        // already re-derives food/shields/trade instead of reading transient fields.
+        //
+        // Known simplifications:
+        //  - Martial law / war-weariness unit counting uses this player's units at/away
+        //    from the city directly, rather than the original's cell-linked-list walk
+        //    and City.Unknown[] references (a UI-facing cache we don't reproduce).
+        private static CitizenMood ComputeCitizenMood(OpenCivOneGame game, int cityID, int luxury, int specialistCount)
+        {
+            var gd = game.GameData;
+            var city = gd.Cities[cityID];
+            var player = gd.Players[city.PlayerID];
+            var cw = game.CityWorker;
+            var gt = game.GameTools;
+
+            // --- Initial unhappy baseline (CityWorker.cs ~line 1431-1443) ---
+            int unhappy;
+            if (city.PlayerID == gd.HumanPlayerID)
+            {
+                int e = 14 - (gd.DifficultyLevel * 2);
+                e = ((player.GovernmentType / 2) + 2) * (e / 2);
+                unhappy = (((cityID % e) + player.CityCount - e) / e) + city.ActualSize + gd.DifficultyLevel - 6;
+            }
+            else
+            {
+                unhappy = city.ActualSize - 3;
+            }
+
+            int overflow = 0;
+            if (city.ActualSize < unhappy)
+            {
+                overflow = unhappy - city.ActualSize;
+                unhappy = city.ActualSize;
+            }
+
+            // --- Happy budget from luxury (line 1469) ---
+            int happy = luxury / 2;
+
+            // --- Building/tech reductions to unhappy (line 1491-1557) ---
+            if (city.HasImprovement(ImprovementEnum.Colosseum)) unhappy -= 3;
+
+            if (game.Segment_1ade.F0_1ade_22b5_PlayerHasTechnology(city.PlayerID, TechnologyAdvanceEnum.Religion) &&
+                city.HasImprovement(ImprovementEnum.Cathedral))
+            {
+                unhappy -= cw.F0_1d12_6c97_PlayerHasWonder(city.PlayerID, WonderEnum.MichelangelosChapel) ? 6 : 4;
+            }
+
+            if (city.HasImprovement(ImprovementEnum.Temple))
+            {
+                if (game.Segment_1ade.F0_1ade_22b5_PlayerHasTechnology(city.PlayerID, TechnologyAdvanceEnum.Mysticism))
+                    unhappy -= 2;
+                else if (game.Segment_1ade.F0_1ade_22b5_PlayerHasTechnology(city.PlayerID, TechnologyAdvanceEnum.CeremonialBurial))
+                    unhappy -= 1;
+
+                if (cw.F0_1d12_6c97_PlayerHasWonder(city.PlayerID, WonderEnum.Oracle))
+                {
+                    unhappy -= game.Segment_1ade.F0_1ade_22b5_PlayerHasTechnology(city.PlayerID, TechnologyAdvanceEnum.Mysticism) ? 2 : 1;
+                }
+            }
+
+            // --- Martial law (GovernmentType<4) vs war-weariness (line 1585-1666) ---
+            if (player.GovernmentType < 4)
+            {
+                int militiaInCity = 0;
+                foreach (var unit in player.Units)
+                {
+                    if (unit.UnitType == UnitTypeEnum.None) continue;
+                    if (unit.Position.X != city.Position.X || unit.Position.Y != city.Position.Y) continue;
+                    if (gd.Units[(int)unit.UnitType].AttackStrength == 0) continue;
+                    militiaInCity++;
+                }
+                militiaInCity = Math.Min(militiaInCity, 3);
+                unhappy -= gt.F0_2dc4_007c_CheckValueRange(militiaInCity, 0, unhappy);
+            }
+            else
+            {
+                int awayMilitaryUnits = 0;
+                foreach (var unit in player.Units)
+                {
+                    if (unit.UnitType == UnitTypeEnum.None || unit.HomeCityID != cityID) continue;
+                    if (unit.UnitType == UnitTypeEnum.Diplomat || unit.UnitType == UnitTypeEnum.Caravan) continue;
+                    if (gd.Units[(int)unit.UnitType].AttackStrength == 0) continue;
+                    bool isAway = gd.Units[(int)unit.UnitType].MovementType == UnitMovementTypeEnum.Air ||
+                        unit.Position.X != city.Position.X || unit.Position.Y != city.Position.Y;
+                    if (isAway) awayMilitaryUnits++;
+                }
+
+                int weariness = cw.F0_1d12_6c97_PlayerHasWonder(city.PlayerID, WonderEnum.WomensSuffrage) ? 1 : 0;
+                if (player.GovernmentType == 5) weariness++; // Democracy
+                unhappy += weariness * awayMilitaryUnits;
+            }
+
+            // --- Wonder adjustments (line 1685-1714) ---
+            if (cw.F0_1d12_6c97_PlayerHasWonder(city.PlayerID, WonderEnum.HangingGardens)) happy++;
+            if (cw.F0_1d12_6c97_PlayerHasWonder(city.PlayerID, WonderEnum.CureForCancer)) happy++;
+            if (gd.WonderCityID[(int)WonderEnum.ShakespearesTheatre] == cityID) unhappy = 0;
+            if (cw.F0_1d12_6c97_PlayerHasWonder(city.PlayerID, WonderEnum.JSBachsCathedral))
+            {
+                var bachCity = gd.Cities[gd.WonderCityID[(int)WonderEnum.JSBachsCathedral]];
+                if (game.MapManagement.F0_2aea_1942_GetGroupID(city.Position.X, city.Position.Y) ==
+                    game.MapManagement.F0_2aea_1942_GetGroupID(bachCity.Position.X, bachCity.Position.Y))
+                {
+                    unhappy -= 2;
+                }
+            }
+
+            // --- Normalize against city size (F0_1d12_6dfe, called repeatedly in the
+            // original; the net effect only depends on the final values) ---
+            while (overflow > 0 && unhappy < overflow) { overflow--; unhappy++; }
+            happy = gt.F0_2dc4_007c_CheckValueRange(happy, 0, city.ActualSize);
+            unhappy = gt.F0_2dc4_007c_CheckValueRange(unhappy, 0, city.ActualSize);
+
+            int nonSpecialistSize = gt.F0_2dc4_007c_CheckValueRange(city.ActualSize - specialistCount, 0, 99);
+            while (happy + unhappy > nonSpecialistSize)
+            {
+                if (overflow > 0) overflow--;
+                else happy = gt.F0_2dc4_007c_CheckValueRange(happy - 1, 0, city.ActualSize);
+                unhappy = gt.F0_2dc4_007c_CheckValueRange(unhappy - 1, 0, city.ActualSize);
+            }
+
+            int normal = city.ActualSize - specialistCount - happy - unhappy;
+            return new CitizenMood { Happy = happy, Normal = normal, Unhappy = unhappy };
         }
 
         private static int FindDistanceToPalace(GameData gd, OpenCivOneGame game, int playerID, GPoint from)

@@ -187,6 +187,53 @@ function clampPopupToViewport(popup) {
     popup.style.top = `${top}px`;
 }
 
+// A small colorable face: a plain circle (any CSS color) with a mouth shape
+// indicating mood, and an optional emoji badge for specialist types where a
+// literal "profession face" emoji doesn't exist. One <svg> per citizen —
+// mirrors the original game's city-view, one icon per citizen.
+function citizenFaceSVG(mouth) {
+    const mouthPath = mouth === 'happy' ? 'M5 11 Q10 17 15 11'
+        : mouth === 'sad' ? 'M5 15.5 Q10 10.5 15 15.5'
+        : 'M6 13 L14 13';
+    return `<svg viewBox="0 0 20 20" class="citizen-face">` +
+        `<circle cx="10" cy="10" r="9" class="citizen-face-bg"/>` +
+        `<circle cx="6.6" cy="8" r="1.15" class="citizen-face-feature"/>` +
+        `<circle cx="13.4" cy="8" r="1.15" class="citizen-face-feature"/>` +
+        `<path d="${mouthPath}" class="citizen-face-feature" fill="none" stroke-width="1.3" stroke-linecap="round"/>` +
+        `</svg>`;
+}
+
+function buildCitizenIcons(row, count, colorClass, mouth, badgeEmoji, title) {
+    for (let i = 0; i < count; i++) {
+        const wrap = document.createElement('span');
+        wrap.className = `citizen-face-wrap ${colorClass}`;
+        wrap.title = title;
+        wrap.innerHTML = citizenFaceSVG(mouth);
+        if (badgeEmoji) {
+            const badge = document.createElement('span');
+            badge.className = 'citizen-face-badge';
+            badge.textContent = badgeEmoji;
+            wrap.appendChild(badge);
+        }
+        row.appendChild(wrap);
+    }
+}
+
+// One row, always in this order: happy (cyan, ecstatic) — content (blue,
+// neutral) — unhappy (red, sad) — entertainers (white, 🎭) — tax collectors
+// (gray, 💰) — scientists (purple, 🔬).
+function buildCitizenRow(citizens) {
+    const row = document.createElement('div');
+    row.className = 'citizen-row';
+    buildCitizenIcons(row, citizens.happy, 'happy', 'happy', null, 'Heureux');
+    buildCitizenIcons(row, citizens.normal, 'normal', 'neutral', null, 'Content');
+    buildCitizenIcons(row, citizens.unhappy, 'unhappy', 'sad', null, 'Mécontent');
+    buildCitizenIcons(row, citizens.entertainers, 'entertainer', 'neutral', '🎭', 'Artiste');
+    buildCitizenIcons(row, citizens.taxCollectors, 'tax', 'neutral', '💰', 'Collecteur de taxe');
+    buildCitizenIcons(row, citizens.scientists, 'science', 'neutral', '🔬', 'Scientifique');
+    return row;
+}
+
 // A row of small squares depicting produced vs. consumed: consumed amount
 // first, then (if there's a surplus) a gap and the surplus squares — all in
 // `squareClass`'s color. If consumption exceeds production, the shortfall is
@@ -246,6 +293,12 @@ function buildCityPopupBody(city, state) {
         ownerEl.className = 'city-owner';
         ownerEl.textContent = owner?.nationality ?? `Player ${city.playerID}`;
         frag.appendChild(ownerEl);
+    }
+
+    // --- Citizens ---
+    if (city.citizens) {
+        frag.appendChild(popupSectionTitle('👥 Citoyens'));
+        frag.appendChild(buildCitizenRow(city.citizens));
     }
 
     // --- Food ---
@@ -383,7 +436,11 @@ function setStatus(msg) { statusEl.textContent = msg; }
 
 function setBusy(b) {
     busy = b;
-    document.querySelectorAll('button').forEach(btn => btn.disabled = b);
+    // Popup close buttons are a pure client-side UI action (no server round
+    // trip) — they must stay clickable even while a game action is in
+    // flight, or during auto-play (which keeps busy=true almost
+    // continuously) the close button becomes unclickable for its entire run.
+    document.querySelectorAll('button:not(.popup-close)').forEach(btn => btn.disabled = b);
 }
 
 async function loadState() {
