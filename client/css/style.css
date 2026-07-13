@@ -411,6 +411,19 @@ body, #app {
   color: #d8c090;
   margin: 2px 0 6px;
 }
+.city-popup .worktiles-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 6px 0 4px;
+}
+.city-popup .worktiles-canvas {
+  border: 1px solid #4a3010;
+  background: #000;
+}
+.city-popup .worktiles-legend {
+  text-align: center;
+  font-size: 12px;
+}
 .city-popup .popup-buildings-label {
   color: #d8c090;
   margin-top: 8px;

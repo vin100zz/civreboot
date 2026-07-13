@@ -276,6 +276,124 @@ function buildResourceRow(produced, consumed, squareClass) {
     return row;
 }
 
+// Mini-map of the 21-tile "fat cross" a city can work (matches game.CityOffsets
+// server-side — the city center plus 20 surrounding tiles, missing the 4 corners
+// of the 5x5 box), like the original game's city-view radius display. Reuses the
+// same sprite images/drawing helpers as the main map renderer (renderer.js) so
+// terrain looks identical; terrain/visibility for each tile comes from the
+// already-loaded main map (only per-tile yields need the server, since those
+// depend on government/corruption/wonders, not just terrain).
+const WORKTILE_CELL = 52;
+function buildWorkTilesMiniMap(city, state) {
+    const wrap = document.createElement('div');
+    wrap.className = 'worktiles-wrap';
+
+    const size = WORKTILE_CELL * 5;
+    const cvs = document.createElement('canvas');
+    cvs.width = size;
+    cvs.height = size;
+    cvs.className = 'worktiles-canvas';
+    const ctx = cvs.getContext('2d');
+    const tiles = state.map?.tiles;
+    const ts = WORKTILE_CELL;
+
+    (city.workTiles || []).forEach(wt => {
+        const px = (wt.dx + 2) * ts;
+        const py = (wt.dy + 2) * ts;
+        const wx = ((city.x + wt.dx) % 80 + 80) % 80;
+        const wy = city.y + wt.dy;
+        const tile = (wy >= 0 && wy < 50) ? tiles?.[wy]?.[wx] : null;
+
+        // Fog of war: an unexplored/currently-invisible tile hides everything about
+        // it — terrain, improvements, whether it's worked, and its yield.
+        if (!tile || tile.v === 0) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(px, py, ts, ts);
+            return;
+        }
+
+        const baseIdx = terrainSpriteIndex(tile.t);
+        if (baseIdx === 10) {
+            if (!_drawSprite(ctx, TERRAIN_SPRITES[10], px, py, ts, ts)) {
+                ctx.fillStyle = TERRAIN_COLORS[10];
+                ctx.fillRect(px, py, ts, ts);
+            }
+        } else {
+            _drawGrasslandBase(ctx, px, py, ts);
+            if (baseIdx === 11) {
+                const cx = px + ts / 2, cy = py + ts / 2;
+                if (_riverNeighborIsWater(tiles, wx, wy, 1, 0))  _drawRiverOverlay(ctx, cx, cy, ts, 0);
+                if (_riverNeighborIsWater(tiles, wx, wy, 0, -1)) _drawRiverOverlay(ctx, cx, cy, ts, -90);
+                if (_riverNeighborIsWater(tiles, wx, wy, 0, 1))  _drawRiverOverlay(ctx, cx, cy, ts, 90);
+                if (_riverNeighborIsWater(tiles, wx, wy, -1, 0)) _drawRiverOverlay(ctx, cx, cy, ts, 180);
+            } else if (baseIdx !== 2) {
+                const overlay = TERRAIN_SPRITES[baseIdx];
+                if (!overlay || !_drawSprite(ctx, overlay, px, py, ts, ts)) {
+                    ctx.fillStyle = TERRAIN_COLORS[tile.t] ?? '#333';
+                    ctx.beginPath();
+                    ctx.arc(px + ts / 2, py + ts / 2, ts / 2.6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        const resourceSprite = _resourceSprite(tile.t);
+        if (resourceSprite) _drawSprite(ctx, resourceSprite, px, py, ts, ts);
+
+        // --- Improvements (same overlays/order as the main map renderer) ---
+        const imp = tile.i;
+        if (imp & IMP_RAILROAD) _drawSprite(ctx, IMP_SPRITES[IMP_RAILROAD], px, py, ts, ts);
+        else if (imp & IMP_ROAD) _drawSprite(ctx, IMP_SPRITES[IMP_ROAD], px, py, ts, ts);
+        if (imp & IMP_IRRIG) _drawSprite(ctx, IMP_SPRITES[IMP_IRRIG], px, py, ts, ts);
+        if (imp & IMP_MINE) _drawSprite(ctx, IMP_SPRITES[IMP_MINE], px, py, ts, ts);
+        if (imp & IMP_POLLUTION) _drawSprite(ctx, IMP_SPRITES[IMP_POLLUTION], px, py, ts, ts);
+        if (imp & IMP_FORTRESS) {
+            ctx.strokeStyle = '#ffcc00';
+            ctx.lineWidth = ts * 0.06;
+            ctx.strokeRect(px + ts * 0.12, py + ts * 0.12, ts - ts * 0.24, ts - ts * 0.24);
+        }
+
+        if (wt.dx === 0 && wt.dy === 0) {
+            // City center — always worked for free, drawn as a dimmed tile with a small
+            // house/palace pictogram (drawn with primitives, not a text glyph — emoji/symbol
+            // fonts aren't reliably available in a <canvas> context across platforms).
+            ctx.fillStyle = 'rgba(0,0,0,0.55)';
+            ctx.fillRect(px, py, ts, ts);
+            const cx = px + ts / 2, cy = py + ts * 0.4;
+            const w = ts * 0.34, h = ts * 0.22;
+            ctx.fillStyle = '#f0c040';
+            ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+            ctx.beginPath();
+            ctx.moveTo(cx - w / 2 - ts * 0.05, cy - h / 2);
+            ctx.lineTo(cx, cy - h / 2 - ts * 0.2);
+            ctx.lineTo(cx + w / 2 + ts * 0.05, cy - h / 2);
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            const borderWidth = wt.worked ? ts * 0.09 : ts * 0.03;
+            ctx.strokeStyle = wt.worked ? '#ffe060' : 'rgba(0,0,0,0.5)';
+            ctx.lineWidth = borderWidth;
+            ctx.strokeRect(px + borderWidth / 2, py + borderWidth / 2, ts - borderWidth, ts - borderWidth);
+        }
+
+        // Yield numbers — shown on every tile, including the city center.
+        ctx.font = `bold ${Math.round(ts * 0.24)}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.lineWidth = ts * 0.07;
+        ctx.strokeStyle = '#000';
+        const label = `${wt.food}/${wt.shields}/${wt.trade}`;
+        ctx.strokeText(label, px + ts / 2, py + ts - ts * 0.1);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label, px + ts / 2, py + ts - ts * 0.1);
+    });
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+
+    wrap.appendChild(cvs);
+    return wrap;
+}
+
 function popupSectionTitle(text) {
     const el = document.createElement('div');
     el.className = 'popup-section-title';
@@ -297,17 +415,27 @@ function buildCityPopupBody(city, state) {
 
     // --- Citizens ---
     if (city.citizens) {
-        frag.appendChild(popupSectionTitle('👥 Citoyens'));
+        frag.appendChild(popupSectionTitle('Citoyens'));
         frag.appendChild(buildCitizenRow(city.citizens));
     }
 
+    // --- Worked tiles mini-map ---
+    if (city.workTiles?.length) {
+        frag.appendChild(popupSectionTitle('Territoire'));
+        frag.appendChild(buildWorkTilesMiniMap(city, state));
+        const legend = document.createElement('div');
+        legend.className = 'popup-subtext worktiles-legend';
+        legend.textContent = 'Bordure dorée = case exploitée — chiffres = nourriture / production / commerce';
+        frag.appendChild(legend);
+    }
+
     // --- Food ---
-    frag.appendChild(popupSectionTitle('🌾 Nourriture'));
+    frag.appendChild(popupSectionTitle('Nourriture'));
     frag.appendChild(buildResourceRow(city.food.produced, city.food.consumed, 'food'));
     frag.appendChild(buildProgressRow('Réserve', city.food.stored, Math.max(1, city.food.neededToGrow)));
 
     // --- Production ---
-    frag.appendChild(popupSectionTitle('🔨 Production'));
+    frag.appendChild(popupSectionTitle('Production'));
     frag.appendChild(buildResourceRow(city.shields.produced, city.shields.consumed, 'shields'));
     const currentEl = document.createElement('div');
     currentEl.className = 'popup-subtext';
@@ -333,7 +461,7 @@ function buildCityPopupBody(city, state) {
     }
 
     // --- Trade ---
-    frag.appendChild(popupSectionTitle('💰 Commerce'));
+    frag.appendChild(popupSectionTitle('Commerce'));
     frag.appendChild(buildResourceRow(city.trade.produced, city.trade.consumed, 'trade'));
     const splitEl = document.createElement('div');
     splitEl.className = 'popup-subtext';

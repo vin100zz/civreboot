@@ -145,9 +145,58 @@ namespace OpenCivOne.Server
                         scientists = economy.Scientists,
                         entertainers = economy.Entertainers,
                     },
+                    workTiles = BuildCityWorkTiles(game, i).Select(t => new
+                    {
+                        dx = t.Dx,
+                        dy = t.Dy,
+                        worked = t.Worked,
+                        food = t.Food,
+                        shields = t.Shields,
+                        trade = t.Trade,
+                    }),
                 });
             }
             return list.ToArray();
+        }
+
+        private readonly struct CityWorkTile
+        {
+            public int Dx { get; init; }
+            public int Dy { get; init; }
+            public bool Worked { get; init; }
+            public int Food { get; init; }
+            public int Shields { get; init; }
+            public int Trade { get; init; }
+        }
+
+        // Per-tile yields for the 21-tile "fat cross" a city can work (game.CityOffsets;
+        // index 20 is the city center, always worked for free) — the same tiles/formula
+        // ComputeCityEconomy sums into totals below, exposed per-tile here so the client can
+        // draw the city popup's work-tile mini-map (terrain/improvements for each tile are
+        // read from the already-loaded main map client-side, keyed by cityX+dx/cityY+dy).
+        private static CityWorkTile[] BuildCityWorkTiles(OpenCivOneGame game, int cityID)
+        {
+            var gd = game.GameData;
+            var city = gd.Cities[cityID];
+            var cw = game.CityWorker;
+            var tiles = new CityWorkTile[21];
+            for (int j = 0; j < 21; j++)
+            {
+                bool worked = (city.WorkerFlags & (uint)(1 << j)) != 0 || j == 20;
+                int x = city.Position.X + game.CityOffsets[j].X;
+                int y = city.Position.Y + game.CityOffsets[j].Y;
+
+                tiles[j] = new CityWorkTile
+                {
+                    Dx = game.CityOffsets[j].X,
+                    Dy = game.CityOffsets[j].Y,
+                    Worked = worked,
+                    Food = cw.F0_1d12_6abc_GetCityResourceCount(city.PlayerID, cityID, x, y, CityResourceTypeEnum.Food),
+                    Shields = cw.F0_1d12_6abc_GetCityResourceCount(city.PlayerID, cityID, x, y, CityResourceTypeEnum.Production),
+                    Trade = cw.F0_1d12_6abc_GetCityResourceCount(city.PlayerID, cityID, x, y, CityResourceTypeEnum.Trade),
+                };
+            }
+            return tiles;
         }
 
         private readonly struct CityEconomy
