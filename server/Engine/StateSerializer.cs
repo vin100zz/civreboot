@@ -49,7 +49,14 @@ namespace OpenCivOne.Server
                 tiles[y] = new object[80];
                 for (int x = 0; x < 80; x++)
                 {
-                    int terrain = (int)mm.GetTerrainType(x, y);
+                    // GetTerrainType only ever returns a base type (0-11) — special resources
+                    // aren't stored per-tile, they're a deterministic function of (x, y,
+                    // RandomSeed) checked on the fly (F0_2aea_1836_CellHasSpecialResource), and
+                    // each base terrain has exactly one resource variant at baseType + 12
+                    // (matches TerrainTypeEnum's ordering, e.g. Desert=0/Oasis=12, Forest=3/Game=15,
+                    // and the original drawing code's Array_d4ce[(int)terrainType + 16] lookup).
+                    int baseTerrain = (int)mm.GetTerrainType(x, y);
+                    int terrain = mm.F0_2aea_1836_CellHasSpecialResource(x, y) ? baseTerrain + 12 : baseTerrain;
                     // Despite the names, F0_2aea_1585_GetVisibleTerrainImprovements is the raw/
                     // ground-truth improvements layer (same storage SetTerrainImprovements writes
                     // to), while F0_2aea_15c1_GetTerrainImprovements reads a separate "revealed to

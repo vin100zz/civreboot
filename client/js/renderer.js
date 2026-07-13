@@ -21,18 +21,18 @@ const TERRAIN_COLORS = [
   '#308040', // 9 = Jungle
   '#1040a0', // 10 = Water/Ocean
   '#4080c0', // 11 = River
-  '#d4b870', // 12 = ResourceOasis
-  '#a0d060', // 13 = ResourceHorses
-  '#a0d060', // 14 = ResourceGrassland
-  '#207830', // 15 = ResourceGame
-  '#808080', // 16 = ResourceCoal
-  '#d4b870', // 17 = ResourceGold
-  '#207830', // 18 = ResourceGame2
-  '#f0f0f0', // 19 = ResourceSeals
-  '#1040a0', // 20 = ResourceOil
-  '#a0d060', // 21 = ResourceGems
-  '#4080c0', // 22 = ResourceFish
-  '#4080c0', // 23 = ResourceRiver
+  '#d4b870', // 12 = ResourceOasis (Desert+12)
+  '#c8a050', // 13 = ResourceHorses (Plains+12)
+  '#a0d060', // 14 = ResourceGrassland (Grassland+12)
+  '#207830', // 15 = ResourceGame (Forest+12)
+  '#c0a868', // 16 = ResourceCoal (Hills+12)
+  '#808080', // 17 = ResourceGold (Mountains+12)
+  '#70b040', // 18 = ResourceGame2 (Tundra+12)
+  '#f0f0f0', // 19 = ResourceSeals (Arctic+12)
+  '#507850', // 20 = ResourceOil (Swamp+12)
+  '#308040', // 21 = ResourceGems (Jungle+12)
+  '#1040a0', // 22 = ResourceFish (Water+12)
+  '#4080c0', // 23 = ResourceRiver (River+12)
 ];
 
 // Terrain sprite files, indices 0-10 match TerrainTypeEnum base terrain types.
@@ -43,11 +43,37 @@ const TERRAIN_SPRITE_FILES = [
   'tundra.png', 'arctic.png', 'swamp.png', 'jungle.png', 'ocean.png',
 ];
 
-// Resource variants (12-23) reuse the visual of their underlying base terrain
-// (no dedicated resource artwork is provided) — same pairing as TERRAIN_COLORS above.
-const RESOURCE_TERRAIN_BASE = [0, 2, 2, 3, 5, 0, 3, 7, 10, 2, 10, 11];
-function terrainSpriteIndex(t) { return t >= 12 ? RESOURCE_TERRAIN_BASE[t - 12] : t; }
+// Resource variants (12-23) are drawn as their underlying base terrain (each
+// resource is base terrain + 12, matching TerrainTypeEnum's ordering — e.g.
+// Desert=0/Oasis=12, Forest=3/Game=15) plus a small resource-icon overlay on
+// top — Game and Game2 share game.png, Grassland+ and River+ share shield.png
+// (see RESOURCE_SPRITE_FILES / _resourceSprite below).
+function terrainSpriteIndex(t) { return t >= 12 ? t - 12 : t; }
 function _isWaterBaseIndex(idx) { return idx === 10 || idx === 11; }
+
+// Raw TerrainTypeEnum value (12-23) -> icon file. Values not listed (e.g. the
+// non-resource 0-11 range) have no resource overlay.
+const RESOURCE_SPRITE_FILES = {
+  12: 'oasis.png',   // Oasis
+  13: 'horse.png',   // Horses
+  14: 'shield.png',  // Grassland+
+  15: 'game.png',    // Game
+  16: 'coal.png',    // Coal
+  17: 'gold.png',    // Gold
+  18: 'game.png',    // Game2 (same icon as Game)
+  19: 'seal.png',    // Seals
+  20: 'oil.png',     // Oil
+  21: 'gems.png',    // Gems
+  22: 'fish.png',    // Fish
+  23: 'shield.png',  // River+ (same icon as Grassland+)
+};
+const _resourceSpriteCache = {};
+function _resourceSprite(terrainType) {
+  const file = RESOURCE_SPRITE_FILES[terrainType];
+  if (!file) return null;
+  if (!_resourceSpriteCache[file]) _resourceSpriteCache[file] = _loadImage('terrain/' + file);
+  return _resourceSpriteCache[file];
+}
 
 // TerrainImprovementFlagsEnum
 const IMP_CITY      = 0x01;
@@ -300,6 +326,17 @@ class MapRenderer {
               ctx.arc(px + ts / 2, py + ts / 2, ts / 2.6, 0, Math.PI * 2);
               ctx.fill();
             }
+          }
+        }
+
+        // --- Special resource (above the terrain overlay, below improvements) ---
+        const resourceSprite = _resourceSprite(tile.t);
+        if (resourceSprite) {
+          if (!_drawSprite(ctx, resourceSprite, px, py, ts, ts)) {
+            ctx.fillStyle = TERRAIN_COLORS[tile.t] ?? '#fff';
+            ctx.beginPath();
+            ctx.arc(px + ts / 2, py + ts / 2, ts / 5, 0, Math.PI * 2);
+            ctx.fill();
           }
         }
 
