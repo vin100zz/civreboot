@@ -749,6 +749,61 @@ document.getElementById('ng-start').addEventListener('click', async () => {
   pollUntilReady();
 });
 
+// --- Save / Load ----------------------------------------------------------
+// Shared slot-picker modal for both Save and Load — 10 fixed slots (matching
+// the original game's own Save/Load menu), backed by the same CIVIL0-9.SVE
+// files the original engine's save code writes/reads (see GameLoadAndSave.cs).
+const saveLoadModal = document.getElementById('saveload-modal');
+const saveLoadTitle = document.getElementById('saveload-title');
+const saveLoadSlots = document.getElementById('saveload-slots');
+let saveLoadMode = 'save'; // 'save' | 'load'
+
+async function openSaveLoadModal(mode) {
+  saveLoadMode = mode;
+  saveLoadTitle.textContent = mode === 'save' ? 'Save Game' : 'Load Game';
+  saveLoadSlots.innerHTML = 'Loading…';
+  saveLoadModal.style.display = 'flex';
+
+  const slots = await (await fetch('/api/saves')).json();
+  saveLoadSlots.innerHTML = '';
+  slots.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'saveload-slot' + (s.exists ? '' : ' saveload-slot-empty');
+    row.textContent = `${s.slot}: ${s.exists ? s.label : '(empty)'}`;
+    // Loading an empty slot makes no sense; saving into any slot (including
+    // overwriting one that already has a game) is always allowed.
+    if (mode === 'load' && !s.exists) {
+      row.classList.add('saveload-slot-disabled');
+    } else {
+      row.addEventListener('click', () => confirmSaveLoad(s.slot, s.exists));
+    }
+    saveLoadSlots.appendChild(row);
+  });
+}
+
+async function confirmSaveLoad(slot, slotExists) {
+  if (saveLoadMode === 'save' && slotExists &&
+      !confirm(`Overwrite the existing save in slot ${slot}?`)) {
+    return;
+  }
+  saveLoadModal.style.display = 'none';
+  const endpoint = saveLoadMode === 'save' ? '/api/save' : '/api/load';
+  const r = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slot }),
+  });
+  const state = await r.json();
+  updateUI(state);
+  if (state.pendingAction) setStatus(state.pendingAction);
+}
+
+document.getElementById('btn-savegame').addEventListener('click', () => openSaveLoadModal('save'));
+document.getElementById('btn-loadgame').addEventListener('click', () => openSaveLoadModal('load'));
+document.getElementById('saveload-cancel').addEventListener('click', () => {
+  saveLoadModal.style.display = 'none';
+});
+
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
     if (busy) return;

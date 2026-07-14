@@ -90,6 +90,33 @@ body, #app {
 }
 #btn-newgame:hover { background: #502020; }
 
+#btn-savegame, #btn-loadgame {
+  width: 100%;
+  background: #201830;
+  color: #c0a0ff;
+  border: 1px solid #503080;
+  padding: 4px;
+  cursor: pointer;
+  font-family: monospace;
+  margin-top: 4px;
+}
+#btn-savegame:hover, #btn-loadgame:hover { background: #302050; }
+
+#saveload-modal .modal-box { width: 320px; }
+.saveload-slot {
+  background: #2a2010;
+  border: 1px solid #4a3010;
+  color: #d8c090;
+  padding: 6px 8px;
+  margin-top: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.saveload-slot:hover { background: #3a3020; }
+.saveload-slot-empty { color: #806840; font-style: italic; }
+.saveload-slot-disabled { cursor: default; opacity: 0.6; }
+.saveload-slot-disabled:hover { background: #2a2010; }
+
 .modal-overlay {
   position: fixed;
   inset: 0;

@@ -25,6 +25,12 @@ namespace OpenCivOne.Server
 
         public string SetViewMode(int mode) => _session.SetViewMode(mode);
 
+        public string SaveGame(int slot) => _session.SaveGame(slot);
+
+        public string LoadGame(int slot) => _session.LoadGame(slot);
+
+        public string ListSaves() => _session.ListSaves();
+
         // Starts a fresh game. The old session's engine thread has no cancellation
         // hook into the decompiled VCPU loop, so it's left running in the background
         // (harmless — IsBackground threads die with the process) rather than torn down.

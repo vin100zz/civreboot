@@ -2,6 +2,7 @@
 // Human input comes via InjectAndWait() called directly from HTTP handlers.
 using IRB.VirtualCPU;
 using OpenCivOne.Graphics;
+using System.Text.Json;
 
 namespace OpenCivOne.Server
 {
@@ -139,10 +140,10 @@ namespace OpenCivOne.Server
             autoStart.Start();
         }
 
-        private string Serialize()
+        private string Serialize(string pendingAction = "")
         {
             _techTracker.Update(_game);
-            return StateSerializer.Serialize(_game, _techTracker.LastDiscovered, viewPlayerID: _viewPlayerID);
+            return StateSerializer.Serialize(_game, _techTracker.LastDiscovered, pendingAction, _viewPlayerID);
         }
 
         public string GetState() => Serialize();
@@ -153,6 +154,45 @@ namespace OpenCivOne.Server
         {
             _viewPlayerID = mode;
             return Serialize();
+        }
+
+        // Save/load reuse the original game's own file format and slot convention
+        // (CIVIL0.SVE..CIVIL9.SVE + a matching .MAP terrain bitmap, written straight to
+        // ResourcePath, i.e. the configured Civ install directory) via GameLoadAndSave —
+        // the same engine code the original DOS game's Save/Load menu called, just
+        // invoked directly instead of through its menu/dialog UI. pendingAction carries
+        // a human-readable result back to the client (an existing, previously-unused
+        // state field — see StateSerializer.Serialize).
+        public string SaveGame(int slot)
+        {
+            slot = Math.Clamp(slot, 0, 9);
+            bool ok = _game.GameLoadAndSave.F11_0000_08f6_SaveGameData($"CIVIL{slot}.SVE");
+            return Serialize(ok ? $"Game saved to slot {slot}." : $"Failed to save to slot {slot}.");
+        }
+
+        public string LoadGame(int slot)
+        {
+            slot = Math.Clamp(slot, 0, 9);
+            bool ok = _game.GameLoadAndSave.F11_0000_083b_LoadGameData($"CIVIL{slot}.SVE");
+            // The loaded save's discovered-tech bitmasks have nothing to do with whatever
+            // game was running a moment ago — reset so the next Update() doesn't diff
+            // against stale data and falsely report techs as "just discovered".
+            if (ok) _techTracker.Reset();
+            return Serialize(ok ? $"Game loaded from slot {slot}." : $"Failed to load slot {slot} (file may not exist).");
+        }
+
+        // Slot info for a save/load picker UI: 10 fixed slots (matching the original
+        // game's own Save/Load menu), each either empty or described by the same
+        // formatted string the original menu showed (difficulty, player, nation, year).
+        public string ListSaves()
+        {
+            var slots = new List<object>();
+            for (int i = 0; i < 10; i++)
+            {
+                string info = _game.GameLoadAndSave.F11_0000_0103_ReadGameInfo($"CIVIL{i}.SVE", out bool exists);
+                slots.Add(new { slot = i, exists, label = info.Trim() });
+            }
+            return JsonSerializer.Serialize(slots);
         }
 
         public string InjectAndWait(PlayerAction action)

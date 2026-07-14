@@ -62,6 +62,27 @@ app.MapPost("/api/viewmode", async (GameServer gs, HttpContext ctx) =>
     return Results.Text(gs.SetViewMode(mode), "application/json");
 });
 
+app.MapGet("/api/saves", (GameServer gs) =>
+    Results.Text(gs.ListSaves(), "application/json"));
+
+app.MapPost("/api/save", async (GameServer gs, HttpContext ctx) =>
+{
+    using var reader = new StreamReader(ctx.Request.Body);
+    var body = await reader.ReadToEndAsync();
+    using var doc = JsonDocument.Parse(body);
+    int slot = doc.RootElement.TryGetProperty("slot", out var s) ? s.GetInt32() : 0;
+    return Results.Text(gs.SaveGame(slot), "application/json");
+});
+
+app.MapPost("/api/load", async (GameServer gs, HttpContext ctx) =>
+{
+    using var reader = new StreamReader(ctx.Request.Body);
+    var body = await reader.ReadToEndAsync();
+    using var doc = JsonDocument.Parse(body);
+    int slot = doc.RootElement.TryGetProperty("slot", out var s) ? s.GetInt32() : 0;
+    return Results.Text(gs.LoadGame(slot), "application/json");
+});
+
 app.MapPost("/api/newgame", async (GameServer gs, HttpContext ctx) =>
 {
     NewGameOptions? options = null;

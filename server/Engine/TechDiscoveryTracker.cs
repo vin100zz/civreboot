@@ -16,6 +16,15 @@ namespace OpenCivOne.Server
         private readonly ushort[]?[] _previousFlags = new ushort[]?[8];
         public string?[] LastDiscovered { get; } = new string?[8];
 
+        // Call after loading a save — the previous snapshot belongs to whatever game
+        // was running before the load, so diffing against it would misreport techs
+        // the loaded save already has as "just discovered".
+        public void Reset()
+        {
+            Array.Clear(_previousFlags);
+            Array.Clear(LastDiscovered);
+        }
+
         public void Update(OpenCivOneGame game)
         {
             var gd = game.GameData;
