@@ -49,7 +49,7 @@ function updateUI(state) {
     renderer.setState(state);
     turnEl.textContent = `Turn ${state.turn}`;
     yearEl.textContent = yearStr(state.year);
-    updateViewSelect(state);
+    viewAllCheckbox.checked = state.viewPlayerID === -2;
 
     const human = state.players?.find(p => p.id === state.humanPlayerID);
     if (human) playerEl.textContent = `${human.nationality} | ${human.coins}💰`;
@@ -63,10 +63,6 @@ function updateUI(state) {
         const statusLabel = unitStatusLabel(activeUnit);
         const statusStr = statusLabel ? ` [${statusLabel}]` : '';
         unitEl.textContent = `${activeUnit.name} #${activeUnit.id}${statusStr}\n(${activeUnit.x},${activeUnit.y}) moves:${activeUnit.moves}`;
-        document.getElementById('unit-actions').style.display = 'block';
-        const isSettler = activeUnit.name === 'Settlers';
-        document.getElementById('settler-actions').style.display = isSettler ? 'flex' : 'none';
-        document.getElementById('btn-found').style.display = isSettler ? 'none' : 'inline-block';
     } else {
         // Show sleeping/fortified units summary
         const nonActive = state.units?.filter(u =>
@@ -78,7 +74,6 @@ function updateUI(state) {
         } else {
             unitEl.textContent = 'No active unit';
         }
-        document.getElementById('unit-actions').style.display = 'none';
     }
 
     renderCivs(state);
@@ -523,11 +518,21 @@ function buildProgressRow(label, value, total, fillClass) {
 function renderCivs(state) {
     if (!civsList) return;
     civsList.innerHTML = '';
+    // Click a civ's row to look at the map through its fog of war (see setViewMode
+    // below) — the currently-spectated civ (if any, i.e. not "Toute la carte") is
+    // highlighted via the civ-viewing class.
+    const viewingPlayerID = state.viewPlayerID === -2 ? null
+        : (state.viewPlayerID === -1 ? state.humanPlayerID : state.viewPlayerID);
+
     state.players?.forEach(p => {
         if (!p.nationality) return; // skip barbarians (no nationality)
 
         const row = document.createElement('div');
-        row.className = 'civ-row' + (p.id === state.humanPlayerID ? ' civ-human' : '');
+        row.className = 'civ-row'
+            + (p.id === state.humanPlayerID ? ' civ-human' : '')
+            + (p.id === viewingPlayerID ? ' civ-viewing' : '');
+        row.dataset.playerId = p.id;
+        row.addEventListener('click', () => setViewMode(p.id));
 
         const nameEl = document.createElement('div');
         nameEl.className = 'civ-name';
@@ -620,18 +625,7 @@ async function pollUntilReady() {
 }
 pollUntilReady();
 
-// Numpad
-document.querySelectorAll('#numpad button').forEach(btn => {
-    btn.addEventListener('click', () => sendAction({ type: 'move', param: Number(btn.dataset.dir) }));
-});
-
 document.getElementById('btn-endturn').addEventListener('click', () => sendAction({ type: 'endturn' }));
-document.getElementById('btn-fortify').addEventListener('click', () => sendAction({ type: 'keypress', param: 'f'.charCodeAt(0) }));
-document.getElementById('btn-sleep').addEventListener('click',   () => sendAction({ type: 'keypress', param: 's'.charCodeAt(0) }));
-document.getElementById('btn-found').addEventListener('click',   () => sendAction({ type: 'found' }));
-document.getElementById('btn-irrigate').addEventListener('click',() => sendAction({ type: 'keypress', param: 'i'.charCodeAt(0) }));
-document.getElementById('btn-mine').addEventListener('click',    () => sendAction({ type: 'keypress', param: 'm'.charCodeAt(0) }));
-document.getElementById('btn-road').addEventListener('click',    () => sendAction({ type: 'keypress', param: 'r'.charCodeAt(0) }));
 
 let autoPlay = false;
 let autoPlayRunning = false;
@@ -660,55 +654,24 @@ document.getElementById('btn-autoplay').addEventListener('click', () => {
   }
 });
 
-// "View map of" — lets you look at the map through another civilization's fog of
-// war (or with no fog at all), purely for display: it never touches whose units/
-// cities you control (state.humanPlayerID is untouched server-side). Options are
-// rebuilt from state.players on every update() so newly-met civs show up, but we
-// avoid clobbering the <select> (and losing focus/selection) on every single poll.
-const viewSelect = document.getElementById('view-select');
-let viewSelectPlayerIDs = null; // last set of player ids the <select> was built from
+// "View map of" — clicking a civilization in the sidebar looks at the map through
+// that civ's fog of war (or, via the "Toute la carte" checkbox, with no fog at
+// all). Purely a display setting: it never touches whose units/cities you
+// control (state.humanPlayerID is untouched server-side).
+const viewAllCheckbox = document.getElementById('view-all-checkbox');
 
-function updateViewSelect(state) {
-  const ids = (state.players || []).map(p => p.id).sort((a, b) => a - b).join(',');
-  if (ids === viewSelectPlayerIDs) return;
-  viewSelectPlayerIDs = ids;
-
-  const prevValue = viewSelect.value;
-  viewSelect.innerHTML = '';
-
-  const mineOpt = document.createElement('option');
-  mineOpt.value = '-1';
-  mineOpt.textContent = 'Ma vue';
-  viewSelect.appendChild(mineOpt);
-
-  const allOpt = document.createElement('option');
-  allOpt.value = '-2';
-  allOpt.textContent = 'Toute la carte';
-  viewSelect.appendChild(allOpt);
-
-  // Player id 0 is a reserved/unused slot (empty nationality, e.g. barbarians
-  // when disabled) — not a real civilization to spectate as.
-  (state.players || []).filter(p => p.nationality).forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = String(p.id);
-    opt.textContent = p.id === state.humanPlayerID ? `${p.nationality} (moi)` : p.nationality;
-    viewSelect.appendChild(opt);
-  });
-
-  // Restore the previous selection if it's still a valid option (e.g. a fresh
-  // player list after a poll); otherwise fall back to the server-reported mode.
-  const stillValid = Array.from(viewSelect.options).some(o => o.value === prevValue);
-  viewSelect.value = stillValid ? prevValue : String(state.viewPlayerID ?? -1);
-}
-
-viewSelect.addEventListener('change', async () => {
+async function setViewMode(mode) {
   const r = await fetch('/api/viewmode', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: parseInt(viewSelect.value, 10) }),
+    body: JSON.stringify({ mode }),
   });
   const state = await r.json();
   updateUI(state);
+}
+
+viewAllCheckbox.addEventListener('change', () => {
+  setViewMode(viewAllCheckbox.checked ? -2 : -1);
 });
 
 const newGameModal = document.getElementById('newgame-modal');

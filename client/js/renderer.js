@@ -475,6 +475,8 @@ class MapRenderer {
       const px = this._screenX(city.x);
       const py = this._screenY(city.y);
       if (px < -ts || px > this.canvas.width || py < -ts || py > this.canvas.height) return;
+      const tileRow = this.state.map?.tiles[city.y];
+      if (!tileRow || !tileRow[city.x]?.v) return;
 
       const color = this._playerColor(city.playerID);
       ctx.fillStyle = color;

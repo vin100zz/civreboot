@@ -65,92 +65,6 @@ body, #app {
 
 #unit-info { color: #a0e0a0; min-height: 40px; }
 
-#numpad {
-  display: grid;
-  grid-template-columns: repeat(3, 36px);
-  gap: 3px;
-  margin: 6px 0;
-}
-#numpad button {
-  background: #2a2010;
-  color: #f0c040;
-  border: 1px solid #5a4020;
-  width: 36px; height: 36px;
-  font-size: 16px;
-  cursor: pointer;
-  font-family: monospace;
-}
-#numpad button:hover { background: #4a3010; }
-#numpad button[data-dir="5"] { color: #808080; }
-
-#unit-cmds {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  margin-top: 4px;
-}
-#unit-cmds button {
-  flex: 1;
-  min-width: 70px;
-  background: #1a2510;
-  color: #a0e080;
-  border: 1px solid #4a6030;
-  padding: 4px 2px;
-  cursor: pointer;
-  font-family: monospace;
-  font-size: 11px;
-}
-#unit-cmds button:hover { background: #2a3a18; }
-
-#settler-actions {
-  display: none;
-  flex-wrap: wrap;
-  gap: 3px;
-  margin-top: 4px;
-}
-#settler-actions button {
-  flex: 1;
-  min-width: 70px;
-  background: #101a30;
-  color: #80c0ff;
-  border: 1px solid #304870;
-  padding: 4px 2px;
-  cursor: pointer;
-  font-family: monospace;
-  font-size: 11px;
-}
-#settler-actions button:hover { background: #1a2a40; }
-
-#btn-found {
-  width: 100%;
-  background: #1a3010;
-  color: #80e080;
-  border: 1px solid #4a8030;
-  padding: 4px;
-  cursor: pointer;
-  font-family: monospace;
-  margin-top: 4px;
-}
-#btn-found:hover { background: #2a5020; }
-
-.view-select-label {
-  display: block;
-  color: #80c0ff;
-  font-size: 11px;
-  margin-top: 6px;
-}
-#view-select {
-  width: 100%;
-  background: #101830;
-  color: #80c0ff;
-  border: 1px solid #305080;
-  padding: 4px;
-  cursor: pointer;
-  font-family: monospace;
-  margin-top: 2px;
-}
-#view-select:hover { background: #203050; }
-
 #btn-autoplay {
   width: 100%;
   background: #102010;
@@ -236,42 +150,56 @@ body, #app {
 #civs-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 11px;
+  gap: 10px;
+  font-size: 15px;
   overflow-y: auto;
 }
 .civ-row {
-  padding: 4px;
+  padding: 8px;
   border: 1px solid #2a2010;
   background: #171310;
+  cursor: pointer;
 }
+.civ-row:hover { background: #221c14; }
 .civ-row .civ-name {
   color: #f0c040;
   font-weight: bold;
+  font-size: 17px;
 }
 .civ-row .civ-stats {
   color: #c0a060;
-  margin-top: 2px;
+  margin-top: 4px;
   white-space: pre-line;
 }
 .civ-row.civ-human { border-color: #4a8030; }
+.civ-row.civ-viewing { border-color: #60c0f0; box-shadow: inset 0 0 0 1px #60c0f0; }
+
+.view-all-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #80c0ff;
+  font-size: 12px;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
 
 /* Generic progress-bar row ("label [====----] n/total"), used by the civ
    panel (tech bars) and the city popup (food/production reserves). */
 .progress-row {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 3px;
+  gap: 7px;
+  margin-top: 5px;
 }
 .progress-label {
   color: #a08858;
   flex-shrink: 0;
-  width: 46px;
+  width: 62px;
 }
 .progress-track {
   flex: 1;
-  height: 7px;
+  height: 10px;
   background: #2a2010;
   border: 1px solid #4a3010;
 }
@@ -283,11 +211,11 @@ body, #app {
 .progress-fraction {
   color: #a08858;
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: 13px;
 }
 .civ-row .last-discovered {
   color: #80c060;
-  margin-top: 2px;
+  margin-top: 4px;
   font-style: italic;
 }
 
