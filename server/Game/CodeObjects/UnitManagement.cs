@@ -1848,11 +1848,15 @@ namespace OpenCivOne
 			{
 				GPoint direction = this.parent.MoveDirections[i];
 
-				int newX = this.parent.GameData.Players[playerID].Units[unitID].Position.X + direction.X;
+				int newX = this.parent.MapManagement.AdjustXPosition(this.parent.GameData.Players[playerID].Units[unitID].Position.X + direction.X);
 				int newY = this.parent.GameData.Players[playerID].Units[unitID].Position.Y + direction.Y;
 
 				// Instruction address 0x1866:0x1ccd, size: 5
-				if (this.parent.MapManagement.F0_2aea_14e0_GetCellUnitPlayerID(newX, newY) == -1 &&
+				// X wraps around the map (AdjustXPosition above); Y doesn't, so near the poles
+				// newY can run off the 50-row map — ValidateMapCoordinates guards that, matching
+				// every other direction-loop in this file (e.g. F0_1866_18d0_IsEnemyUnitNear).
+				if (this.parent.MapManagement.F0_2aea_1326_ValidateMapCoordinates(newX, newY) &&
+					this.parent.MapManagement.F0_2aea_14e0_GetCellUnitPlayerID(newX, newY) == -1 &&
 					!this.parent.MapManagement.F0_2aea_1585_GetVisibleTerrainImprovements(newX, newY).HasFlag(TerrainImprovementFlagsEnum.City))
 				{
 					// Instruction address 0x1866:0x1cf0, size: 5
