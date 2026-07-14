@@ -53,8 +53,14 @@ app.MapPost("/api/action", async (GameServer gs, HttpContext ctx) =>
     return Results.Text(state, "application/json");
 });
 
-app.MapPost("/api/reveal", (GameServer gs) =>
-    Results.Text(gs.RevealMap(), "application/json"));
+app.MapPost("/api/viewmode", async (GameServer gs, HttpContext ctx) =>
+{
+    using var reader = new StreamReader(ctx.Request.Body);
+    var body = await reader.ReadToEndAsync();
+    using var doc = JsonDocument.Parse(body);
+    int mode = doc.RootElement.TryGetProperty("mode", out var m) ? m.GetInt32() : -1;
+    return Results.Text(gs.SetViewMode(mode), "application/json");
+});
 
 app.MapPost("/api/newgame", async (GameServer gs, HttpContext ctx) =>
 {

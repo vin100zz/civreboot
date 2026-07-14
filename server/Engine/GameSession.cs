@@ -13,6 +13,13 @@ namespace OpenCivOne.Server
         private readonly CancellationTokenSource _cts = new();
         private readonly TechDiscoveryTracker _techTracker = new();
 
+        // Which fog-of-war to serialize the map with: -1 = the human player's own
+        // view (default), -2 = "view all" (no fog), 0-15 = spectate as that player.
+        // Purely a display setting — never touches GameData.MapVisibility, so
+        // switching back to "my view" always un-reveals everything (unlike the old
+        // Reveal Map button, which permanently OR'd the human's visibility bitmask).
+        private int _viewPlayerID = -1;
+
         public GameSession(string civPath, NewGameOptions? options = null)
         {
             var opts = NewGameOptions.Clamp(options ?? new NewGameOptions());
@@ -135,18 +142,16 @@ namespace OpenCivOne.Server
         private string Serialize()
         {
             _techTracker.Update(_game);
-            return StateSerializer.Serialize(_game, _techTracker.LastDiscovered);
+            return StateSerializer.Serialize(_game, _techTracker.LastDiscovered, viewPlayerID: _viewPlayerID);
         }
 
         public string GetState() => Serialize();
 
-        public string RevealMap()
+        // mode: -1 = the human player's own view, -2 = view all (no fog), 0-15 = spectate
+        // as that player. Just a display setting for future GetState()/InjectAndWait() calls.
+        public string SetViewMode(int mode)
         {
-            var gd = _game.GameData;
-            ushort bit = (ushort)(1 << gd.HumanPlayerID);
-            for (int x = 0; x < 80; x++)
-                for (int y = 0; y < 50; y++)
-                    gd.MapVisibility[x, y] |= bit;
+            _viewPlayerID = mode;
             return Serialize();
         }
 

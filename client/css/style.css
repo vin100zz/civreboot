@@ -133,7 +133,13 @@ body, #app {
 }
 #btn-found:hover { background: #2a5020; }
 
-#btn-reveal {
+.view-select-label {
+  display: block;
+  color: #80c0ff;
+  font-size: 11px;
+  margin-top: 6px;
+}
+#view-select {
   width: 100%;
   background: #101830;
   color: #80c0ff;
@@ -141,9 +147,9 @@ body, #app {
   padding: 4px;
   cursor: pointer;
   font-family: monospace;
-  margin-top: 4px;
+  margin-top: 2px;
 }
-#btn-reveal:hover { background: #203050; }
+#view-select:hover { background: #203050; }
 
 #btn-autoplay {
   width: 100%;

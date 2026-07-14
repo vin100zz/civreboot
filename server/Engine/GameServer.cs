@@ -23,7 +23,7 @@ namespace OpenCivOne.Server
 
         public string InjectAndWait(PlayerAction action) => _session.InjectAndWait(action);
 
-        public string RevealMap() => _session.RevealMap();
+        public string SetViewMode(int mode) => _session.SetViewMode(mode);
 
         // Starts a fresh game. The old session's engine thread has no cancellation
         // hook into the decompiled VCPU loop, so it's left running in the background

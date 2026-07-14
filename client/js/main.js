@@ -49,6 +49,7 @@ function updateUI(state) {
     renderer.setState(state);
     turnEl.textContent = `Turn ${state.turn}`;
     yearEl.textContent = yearStr(state.year);
+    updateViewSelect(state);
 
     const human = state.players?.find(p => p.id === state.humanPlayerID);
     if (human) playerEl.textContent = `${human.nationality} | ${human.coins}💰`;
@@ -659,8 +660,53 @@ document.getElementById('btn-autoplay').addEventListener('click', () => {
   }
 });
 
-document.getElementById('btn-reveal').addEventListener('click', async () => {
-  const r = await fetch('/api/reveal', { method: 'POST' });
+// "View map of" — lets you look at the map through another civilization's fog of
+// war (or with no fog at all), purely for display: it never touches whose units/
+// cities you control (state.humanPlayerID is untouched server-side). Options are
+// rebuilt from state.players on every update() so newly-met civs show up, but we
+// avoid clobbering the <select> (and losing focus/selection) on every single poll.
+const viewSelect = document.getElementById('view-select');
+let viewSelectPlayerIDs = null; // last set of player ids the <select> was built from
+
+function updateViewSelect(state) {
+  const ids = (state.players || []).map(p => p.id).sort((a, b) => a - b).join(',');
+  if (ids === viewSelectPlayerIDs) return;
+  viewSelectPlayerIDs = ids;
+
+  const prevValue = viewSelect.value;
+  viewSelect.innerHTML = '';
+
+  const mineOpt = document.createElement('option');
+  mineOpt.value = '-1';
+  mineOpt.textContent = 'Ma vue';
+  viewSelect.appendChild(mineOpt);
+
+  const allOpt = document.createElement('option');
+  allOpt.value = '-2';
+  allOpt.textContent = 'Toute la carte';
+  viewSelect.appendChild(allOpt);
+
+  // Player id 0 is a reserved/unused slot (empty nationality, e.g. barbarians
+  // when disabled) — not a real civilization to spectate as.
+  (state.players || []).filter(p => p.nationality).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = String(p.id);
+    opt.textContent = p.id === state.humanPlayerID ? `${p.nationality} (moi)` : p.nationality;
+    viewSelect.appendChild(opt);
+  });
+
+  // Restore the previous selection if it's still a valid option (e.g. a fresh
+  // player list after a poll); otherwise fall back to the server-reported mode.
+  const stillValid = Array.from(viewSelect.options).some(o => o.value === prevValue);
+  viewSelect.value = stillValid ? prevValue : String(state.viewPlayerID ?? -1);
+}
+
+viewSelect.addEventListener('change', async () => {
+  const r = await fetch('/api/viewmode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: parseInt(viewSelect.value, 10) }),
+  });
   const state = await r.json();
   updateUI(state);
 });

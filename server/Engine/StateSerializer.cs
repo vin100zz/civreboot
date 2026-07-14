@@ -7,11 +7,17 @@ namespace OpenCivOne.Server
 {
     public static class StateSerializer
     {
-        public static string Serialize(OpenCivOneGame game, string?[]? lastDiscoveredTech = null, string pendingAction = "")
+        // viewPlayerID controls whose fog-of-war the "v" (visible) tile flag reflects:
+        //  -1 (default) = the human player's own view.
+        //  -2            = "view all" — no fog, every tile marked visible.
+        //  0-15          = spectate as that player/civilization's fog instead.
+        // This only affects what's reported as visible; humanPlayerID (and therefore
+        // which units/cities the player actually controls) is unchanged.
+        public static string Serialize(OpenCivOneGame game, string?[]? lastDiscoveredTech = null, string pendingAction = "", int viewPlayerID = -1)
         {
             var gd = game.GameData;
 
-            var tiles = BuildTileArray(game);
+            var tiles = BuildTileArray(game, viewPlayerID);
             var cities = BuildCities(game);
             var units = BuildUnits(gd);
             var players = BuildPlayers(game, lastDiscoveredTech);
@@ -25,6 +31,7 @@ namespace OpenCivOne.Server
                 aiOpponentCount = gd.AIOpponentCount,
                 activeCivs = Convert.ToString(gd.ActiveCivilizations, 2).PadLeft(8, '0'),
                 pendingAction,
+                viewPlayerID,
                 map = new
                 {
                     width = 80,
@@ -39,10 +46,11 @@ namespace OpenCivOne.Server
             return JsonSerializer.Serialize(state);
         }
 
-        private static object[][] BuildTileArray(OpenCivOneGame game)
+        private static object[][] BuildTileArray(OpenCivOneGame game, int viewPlayerID)
         {
             var gd = game.GameData;
             var mm = game.MapManagement;
+            int visibilityBit = viewPlayerID == -1 ? (1 << gd.HumanPlayerID) : (1 << viewPlayerID);
             var tiles = new object[50][];
             for (int y = 0; y < 50; y++)
             {
@@ -66,13 +74,13 @@ namespace OpenCivOne.Server
                     // fog-of-war is the "v" field below (tiles with v=0 aren't drawn client-side),
                     // so reading the raw layer here is safe and actually reflects real improvements.
                     int improvements = (int)mm.F0_2aea_1585_GetVisibleTerrainImprovements(x, y);
-                    int visibility = (int)(gd.MapVisibility[x, y] & (1 << gd.HumanPlayerID));
+                    bool visible = viewPlayerID == -2 || (gd.MapVisibility[x, y] & visibilityBit) != 0;
 
                     tiles[y][x] = new
                     {
                         t = terrain,
                         i = improvements,
-                        v = visibility != 0 ? 1 : 0
+                        v = visible ? 1 : 0
                     };
                 }
             }
