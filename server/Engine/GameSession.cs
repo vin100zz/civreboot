@@ -70,6 +70,14 @@ namespace OpenCivOne.Server
             // Force LandMass/Age (et EarthMap) avant que GenerateMap() soit appelé.
             // "New Game" (MainCode case 0) hardcode LandMass=1/Age=1 puis appelle GenerateMap() :
             // on écrase les variables en boucle jusqu'au démarrage du premier tour.
+            //
+            // Also forces GameSettingFlags.AutoSave off here (it defaults to on —
+            // GameSettings.cs's settingsValue = 2 has that bit set). The original engine's
+            // own autosave (Segment_1238.cs, every 50 turns) is a blocking "Game has been
+            // saved. Press key to continue." dialog + getch() with no headless equivalent;
+            // we reimplement autosave ourselves in InjectAndWait below (same slot rotation,
+            // no blocking, and it surfaces a result via pendingAction) instead of letting the
+            // built-in one run redundantly and stall the engine thread every 50 turns.
             var landmassThread = new Thread(() =>
             {
                 while (_game.GameData.TurnCount == 0 && !_cts.Token.IsCancellationRequested)
@@ -77,6 +85,7 @@ namespace OpenCivOne.Server
                     _game.Var_7ef6_PlanetLandMass = opts.LandMass;
                     _game.Var_7efc_PlanetAge = opts.Age;
                     if (loadPrebuiltMap) _game.Var_d76a_EarthMap = true;
+                    _game.GameData.GameSettingFlags.AutoSave = false;
                     Thread.Sleep(50);
                 }
                 Console.WriteLine($"[LandMass] Carte générée avec LandMass={_game.Var_7ef6_PlanetLandMass} Age={_game.Var_7efc_PlanetAge}");
@@ -177,7 +186,14 @@ namespace OpenCivOne.Server
             // The loaded save's discovered-tech bitmasks have nothing to do with whatever
             // game was running a moment ago — reset so the next Update() doesn't diff
             // against stale data and falsely report techs as "just discovered".
-            if (ok) _techTracker.Reset();
+            if (ok)
+            {
+                _techTracker.Reset();
+                // The save file carries its own GameSettingFlags (including AutoSave), which
+                // may well be the original engine's default (on) — force it back off so we
+                // don't reintroduce the blocking autosave dialog this session already disabled.
+                _game.GameData.GameSettingFlags.AutoSave = false;
+            }
             return Serialize(ok ? $"Game loaded from slot {slot}." : $"Failed to load slot {slot} (file may not exist).");
         }
 
@@ -203,6 +219,16 @@ namespace OpenCivOne.Server
                 // (covers cases where the player has several units still waiting).
                 // Alternate Space (skip unit) and Enter (confirm dialogs like city production).
                 // Space alone gets stuck when the game is waiting for a production/research dialog.
+                //
+                // Every 6th tick sends a Down-arrow (DOS extended scancode 0x5000) instead —
+                // MenuBoxDialog.cs's interactive menu loop starts with option 0 selected, and if
+                // that option happens to be disabled (Var_b276_MenuBoxDisabledOptions), Enter/Space
+                // are silently swallowed forever (the loop only exits on Enter/Space when the
+                // *currently selected* option isn't disabled) — a plain Enter/Space keep-alive can
+                // never recover from that, and the turn would stall until the deadline below, every
+                // single time it's retried. Down-arrow unconditionally moves the selection forward
+                // (never past the last option, never re-triggers the disabled one once past it), so
+                // interleaving it walks off a disabled default within a few ticks.
                 int startTurn = _game.GameData.TurnCount;
                 var deadline = DateTime.UtcNow.AddSeconds(30);
                 int tick = 0;
@@ -210,7 +236,7 @@ namespace OpenCivOne.Server
                 {
                     if (_game.Keys.Count == 0)
                     {
-                        int key = (tick % 4 == 0) ? '\r' : ' ';
+                        int key = (tick % 6 == 5) ? 0x5000 : (tick % 4 == 0) ? '\r' : ' ';
                         lock (VCPU.KeyboardLock)
                             _game.Keys.Enqueue(key);
                         tick++;
@@ -218,6 +244,19 @@ namespace OpenCivOne.Server
                     Thread.Sleep(150);
                 }
                 Thread.Sleep(200); // let state settle
+
+                // Auto-save: mirrors the original engine's own cadence/slot rotation
+                // (Segment_1238.cs, every 50 turns, rotating through 6 slots starting at 4 —
+                // same convention manual saves use for slots 0-3) but calls the save data
+                // writer directly instead of the original's blocking dialog + getch(), and
+                // surfaces the result via pendingAction instead of a screen the client can't see.
+                int turnCount = _game.GameData.TurnCount;
+                if (turnCount != startTurn && turnCount > 0 && turnCount % 50 == 0)
+                {
+                    int slot = 4 + (((turnCount / 50) - 1) % 6);
+                    bool ok = _game.GameLoadAndSave.F11_0000_08f6_SaveGameData($"CIVIL{slot}.SVE");
+                    return Serialize(ok ? $"Auto-saved to slot {slot}." : $"Auto-save to slot {slot} failed.");
+                }
             }
             else
             {

@@ -601,7 +601,10 @@ async function sendAction(obj) {
         });
         const state = await r.json();
         updateUI(state);
-        setStatus(`Turn ${state.turn} | ok`);
+        // pendingAction currently only ever carries an auto-save result (see
+        // GameSession.InjectAndWait) — surface it instead of the usual "Turn N | ok"
+        // when present, so the player notices the game just saved itself.
+        setStatus(state.pendingAction || `Turn ${state.turn} | ok`);
     } catch (e) {
         setStatus('Erreur: ' + e.message);
     } finally {
