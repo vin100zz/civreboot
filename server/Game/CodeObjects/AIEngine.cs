@@ -1879,6 +1879,25 @@ namespace OpenCivOne
 					}
 				}
 
+				// A land unit fully surrounded by water (e.g. a Settler stranded on an
+				// exhausted island, like each starting island on a seven-islands-style map)
+				// never satisfies the "newTerrainType != Water || unit isn't Land" guard for
+				// ANY of the 8 directions above, so maximumScore is left at its initial
+				// sentinel (-999) and newUnitDirection1 at its initial 0 — the same silent
+				// "nothing was ever scored" shape the two sibling fixes above this one
+				// (unitOrCityNotNear / checkMovementFlag) already guard against for other
+				// unscored-direction cases. Falling through here returns direction 0, which
+				// is ambiguous (MoveDirections[0] is a real, if degenerate, "move" rather
+				// than the conventional "give up this turn" signal every other bail-out path
+				// in this function returns, ' '), and can leave the unit's turn perpetually
+				// unresolved instead of yielding it. Return the same explicit "do nothing"
+				// signal used elsewhere.
+				if (maximumScore == -999)
+				{
+					unit.GoToNextDirection = -1;
+					return ' ';
+				}
+
 				unit.GoToNextDirection = (short)newUnitDirection1;
 
 				if (unitRoleType == UnitRoleTypeEnum.Settler)

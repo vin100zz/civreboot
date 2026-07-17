@@ -379,17 +379,22 @@ namespace OpenCivOne
 					{
 						humanPlayer.PalaceLevel++;
 
-						if (humanPlayer.PalaceLevel <= 37)
-						{
-							// build palace user dialog
-							this.oParent.Palace.F17_0000_0000();
-						}
+						// Palace.F17_0000_0000() is the original game's Palace-building screen — an
+						// interactive mini-game for placing decorative wings, driven entirely by
+						// mouse clicks and ad-hoc keyboard navigation with no headless equivalent.
+						// This server's client has no UI for it either. The mechanical effect of
+						// leveling up (PalaceLevel++ above) already applies regardless, so the turn
+						// loop was hanging here forever (confirmed via diagnostic logging — this was
+						// the actual cause of the "stuck at some turn forever" freeze reported by the
+						// player, not an AI decision loop) waiting for mouse/key input our automated
+						// End Turn key injection (GameSession.cs) can never produce. Skip the visual
+						// screen entirely rather than trying to synthesize input for it.
 					}
 					// No need to check any further
 					break;
 				}
 			}
-		
+
 			// Instruction address 0x1238:0x066f, size: 3
 			F0_1238_107e();
 
