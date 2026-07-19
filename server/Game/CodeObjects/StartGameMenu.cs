@@ -547,9 +547,16 @@ namespace OpenCivOne
 						// (Array_35da); a custom map may only define some, or none — for the
 						// rest, fall through and keep whatever the random site-search above found.
 						int nationalityID = this.parent.GameData.Players[playerID].NationalityID;
-						GPoint? startPos = this.parent.CustomMapGrid != null
-							? this.parent.CustomMapStartPositions[nationalityID]
-							: this.parent.Array_35da[nationalityID];
+						GPoint? startPos;
+						if (this.parent.CustomMapGrid != null)
+						{
+							string nationality = this.parent.GameData.Nations[nationalityID].Nationality;
+							startPos = this.parent.CustomMapStartPositionsByName.TryGetValue(nationality, out var pos) ? pos : null;
+						}
+						else
+						{
+							startPos = this.parent.Array_35da[nationalityID];
+						}
 
 						// GPoint overloads == / != without null-checking (NullReferenceException
 						// on a null operand) — use "is not null" (reference check) instead.

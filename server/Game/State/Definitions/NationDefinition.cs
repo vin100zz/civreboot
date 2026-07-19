@@ -20,8 +20,9 @@ namespace OpenCivOne
 		public short ShortTune;
 		public short LongTune;
 		public string[] Cities;
+		public string Color;
 
-		public NationDefinition(int id, string leader, string nation, string nationality, short mood, short policy, short ideology, short shortTune, short longTune, string[] cities)
+		public NationDefinition(int id, string leader, string nation, string nationality, short mood, short policy, short ideology, short shortTune, short longTune, string[] cities, string color = "#FF0200")
 		{
 			this.ID = id;
 			this.Leader = leader;
@@ -33,6 +34,7 @@ namespace OpenCivOne
 			this.ShortTune = shortTune;
 			this.LongTune = longTune;
 			this.Cities = cities;
+			this.Color = color;
 		}
 	}
 }

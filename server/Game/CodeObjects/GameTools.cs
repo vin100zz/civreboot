@@ -22,6 +22,7 @@ namespace OpenCivOne
 			// function body
 			this.parent.GameData.RandomSeed = (ushort)(this.parent.CAPI.time(0) & 0x7fff);
 			this.parent.CAPI.srand(this.parent.GameData.RandomSeed);
+			this.parent.GameData.ShuffleNations(this.parent.GameData.RandomSeed);
 		}
 
 		/// <summary>

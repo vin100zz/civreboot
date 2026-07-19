@@ -50,21 +50,17 @@ namespace OpenCivOne.Server
                 var mapData = OpenCivOne.Server.Maps.CustomMapFormat.Load(opts.CustomMap);
                 _game.CustomMapGrid = mapData.Grid;
 
-                // Resolve the map's per-nationality start positions (keyed by name, e.g.
-                // "Roman") to NationalityID slots (see GameData.cs's nationTypes list for
-                // the id <-> name mapping) — this is what StartGameMenu.cs reads instead of
-                // the real Array_35da when a custom map is active.
-                int matched = 0;
-                for (int i = 0; i < _game.GameData.Nations.Length; i++)
+                // Keep the map's per-nationality start positions keyed by name (e.g. "Roman")
+                // rather than resolving to NationalityID here: GameData.Nations isn't shuffled
+                // from Nations.json yet at this point (that happens later, in
+                // GameTools.F0_2dc4_0042_Randomize, once the game thread starts), so IDs
+                // aren't stable. StartGameMenu.cs resolves name -> position when it's actually
+                // needed, once Nations is final.
+                foreach (var kv in mapData.StartPositions)
                 {
-                    string nationality = _game.GameData.Nations[i].Nationality;
-                    if (!string.IsNullOrEmpty(nationality) && mapData.StartPositions.TryGetValue(nationality, out var pos))
-                    {
-                        _game.CustomMapStartPositions[i] = new GPoint(pos.X, pos.Y);
-                        matched++;
-                    }
+                    _game.CustomMapStartPositionsByName[kv.Key] = new GPoint(kv.Value.X, kv.Value.Y);
                 }
-                Console.WriteLine($"[Map] Carte personnalisée chargée : {opts.CustomMap} ({matched} position(s) de départ définies)");
+                Console.WriteLine($"[Map] Carte personnalisée chargée : {opts.CustomMap} ({_game.CustomMapStartPositionsByName.Count} position(s) de départ définies)");
             }
 
             // Force LandMass/Age (et EarthMap) avant que GenerateMap() soit appelé.

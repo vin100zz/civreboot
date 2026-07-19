@@ -211,12 +211,15 @@ namespace OpenCivOne
 		public TerrainTypeEnum[,]? CustomMapGrid = null;
 
 		// Not part of the original game: per-nationality start tile override for a custom
-		// map, indexed like Array_35da (by NationalityID, 16 entries). Unlike Array_35da
-		// (always fully populated for real Earth games), entries here are null by default —
-		// StartGameMenu.cs only overrides the settler's site-search result for nationalities
-		// the map actually specifies a position for; everyone else keeps the normal random
-		// placement. Populated from CustomMapData.StartPositions in GameSession.cs.
-		public GPoint?[] CustomMapStartPositions = new GPoint?[16];
+		// map, keyed by nationality name (e.g. "Roman") rather than NationalityID —
+		// GameData.Nations is reshuffled from Nations.json after this dictionary is
+		// populated (GameSession.cs runs before GameTools.ShuffleNations), so IDs aren't
+		// stable yet; StartGameMenu.cs resolves NationalityID -> name -> position at the
+		// point a settler's start tile is actually picked, when Nations is final.
+		// Entries are only present for nationalities the map specifies; everyone else
+		// keeps the normal random placement. Populated from CustomMapData.StartPositions
+		// in GameSession.cs.
+		public Dictionary<string, GPoint> CustomMapStartPositionsByName = new(StringComparer.OrdinalIgnoreCase);
 		public int Var_deba = 0;
 		public int Var_d7f0 = 0;
 		public bool Var_d806_DebugFlag = false;

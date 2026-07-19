@@ -93,19 +93,10 @@ const UNIT_SPRITE_FILES = [
   'transport.png', 'nuclear.png', 'diplomat.png', 'caravan.png',
 ];
 
-// Civilization color by nationality string (case-insensitive prefix match).
-// Pairs share the same color.
-function getNationalityColor(nationality) {
-  const n = (nationality || '').toLowerCase();
-  if (n.startsWith('russian') || n.startsWith('roman'))    return '#FFAD14'; // yellow
-  if (n.startsWith('indian')  || n.startsWith('mongol'))   return '#FFFFFF'; // white
-  if (n.startsWith('zulu')    || n.startsWith('babylon'))  return '#606060'; // grey
-  if (n.startsWith('chinese') || n.startsWith('american')) return '#D748D4'; // pink/purple
-  if (n.startsWith('aztec')   || n.startsWith('egyptian')) return '#32FFFF'; // cyan
-  if (n.startsWith('french')  || n.startsWith('german'))   return '#7C7CFF'; // blue/lavender
-  if (n.startsWith('greek')   || n.startsWith('english'))  return '#02BF02'; // light green
-  return '#FF0200'; // fallback
-}
+// Fallback when a player's state doesn't carry a color (should only happen
+// with an older/incompatible server response — the server is the source of
+// truth for civ colors, see server/Data/Nations.json's "color" field).
+const FALLBACK_COLOR = '#FF0200';
 
 // --- Sprite loading -------------------------------------------------------
 // All sprites are loaded up front. Renders before an image finishes loading
@@ -217,10 +208,10 @@ class MapRenderer {
   setState(state) {
     this.state = state;
 
-    // Build playerID -> color map from nationality
+    // Build playerID -> color map from the server-provided per-civ color
     this.playerColors = {};
     state?.players?.forEach(p => {
-      this.playerColors[p.id] = getNationalityColor(p.nationality);
+      this.playerColors[p.id] = p.color || FALLBACK_COLOR;
     });
 
     // Center the view on the human player's active unit, but only the very

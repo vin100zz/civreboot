@@ -23,10 +23,10 @@
 // 80 are ignored. Fewer than 50 rows are padded with all-Water rows.
 //
 // startPositions is optional and per-nationality (keys match NationDefinition's
-// "Nationality" adjective — see GameData.cs's nationTypes list: Roman, Babylonian,
-// German, Egyptian, American, Greek, Indian, Russian, Zulu, French, Aztec, Chinese,
-// English, Mongol). This mirrors the original game's Array_35da, which hardcodes
-// each nation's real-world start tile for "EARTH" games (StartGameMenu.cs ~line 543).
+// "Nationality" adjective — see server/Data/Nations.json for the configurable pool
+// civilizations are drawn from each game, e.g. Roman, Babylonian, German, Egyptian).
+// This mirrors the original game's Array_35da, which hardcodes each nation's
+// real-world start tile for "EARTH" games (StartGameMenu.cs ~line 543).
 // Any nationality NOT listed just uses the normal random site-search — you don't have
 // to specify all of them.
 using System.Text.Json;

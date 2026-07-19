@@ -641,6 +641,10 @@ namespace OpenCivOne.Server
                     id = i,
                     name = p.Name,
                     nationality = p.Nationality,
+                    // NationalityID can carry an out-of-range value faithfully reproduced
+                    // from original-engine quirks (see StartGameMenu.cs's "indexing error"
+                    // comment near HumanPlayerID) — guard instead of indexing Nations directly.
+                    color = (p.NationalityID >= 0 && p.NationalityID < gd.Nations.Length) ? gd.Nations[p.NationalityID].Color : "#FF0200",
                     coins = p.Coins,
                     researchID = p.ResearchTechnologyID,
                     research,

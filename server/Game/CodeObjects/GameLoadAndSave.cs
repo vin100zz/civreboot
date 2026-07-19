@@ -247,6 +247,7 @@ namespace OpenCivOne
 				this.parent.GameData.HumanPlayerID = ReadInt16(reader);
 				this.parent.GameData.PlayerFlags = ReadInt16(reader);
 				this.parent.GameData.RandomSeed = ReadUInt16(reader);
+				this.parent.GameData.ShuffleNations(this.parent.GameData.RandomSeed);
 				this.parent.GameData.Year = ReadInt16(reader);
 				this.parent.GameData.DifficultyLevel = ReadInt16(reader);
 				this.parent.GameData.ActiveCivilizations = ReadInt16(reader);

@@ -33,56 +33,11 @@ namespace OpenCivOne
 		// Players
 		public Player[] Players = new Player[8];
 
-		// Nations
-		private NationDefinition[] nationTypes = new NationDefinition[] {
-			new NationDefinition(0, "Attila", "Barbarians", "Barbarian", 0, 0, 0, 36, 36,
-				new string[] {"Mecca", "Naples", "Sidon", "Tyre", "Tarsus", "Issus", "Cunaxa", "Cremona", "Cannae", "Capua",
-					"Turin", "Genoa", "Utica", "Crete", "Damascus", "Verona" }),
-			new NationDefinition(1, "Caesar", "Romans", "Roman", 0, 1, 1, 24, 10, 
-				new string[] {"Rome", "Caesarea", "Carthage", "Nicopolis", "Byzantium", "Brundisium", "Syracuse", "Antioch", "Palmyra", "Cyrene",
-					"Gordion", "Tyrus", "Jerusalem", "Seleucia", "Ravenna", "Artaxata" }),
-			new NationDefinition(2, "Hammurabi", "Babylonians", "Babylonian", -1, -1, 1, 28, 14,
-				new string[] {"Babylon", "Sumer", "Uruk", "Nineveh", "Ashur", "Ellipi", "Akkad", "Eridu", "Kish", "Nippur",
-					"Shuruppak", "Zariqum", "Izibia", "Nimrud", "Arbela", "Zamua" }),
-			new NationDefinition(3, "Frederick", "Germans", "German", 1, -1, 1, 32, 18,
-				new string[] {"Berlin", "Leipzig", "Hamburg", "Bremen", "Frankfurt", "Bonn", "Nuremberg", "Cologne", "Hannover", "Munich",
-					"Stuttgart", "Heidelburg", "Salzburg", "Konigsberg", "Dortmund", "Brandenburg" }),
-			new NationDefinition(4, "Ramesses", "Egyptians", "Egyptian", 0, 0, 1, 21, 7,
-				new string[] {"Thebes", "Memphis", "Oryx", "Heliopolis", "Gaza", "Alexandria", "Byblos", "Cairo", "Coptos", "Edfu",
-					"Pithom", "Busiris", "Athribis", "Mendes", "Tanis", "Abydos" }),
-			new NationDefinition(5, "Abe Lincoln", "Americans", "American", -1, 0, 1, 19, 5,
-				new string[] {"Washington", "New York", "Boston", "Philadelphia", "Atlanta", "Chicago", "Buffalo", "St.Louis", "Detroit", "New Orleans",
-					"Baltimore", "Denver", "Cincinnati", "Dallas", "Los Angeles", "Las Vegas" }),
-			new NationDefinition(6, "Alexander", "Greeks", "Greek", 0, 1, -1, 26, 12,
-				new string[] {"Athens", "Sparta", "Corinth", "Delphi", "Eretria", "Pharsalos", "Argos", "Mycenae", "Herakleia", "Antioch",
-					"Ephesos", "Rhodes", "Knossos", "Troy", "Pergamon", "Miletos" }),
-			new NationDefinition(7, "M.Gandhi", "Indians", "Indian", -1, -1, 0, 31, 17,
-				new string[] {"Delhi", "Bombay", "Madras", "Bangalore", "Calcutta", "Lahore", "Karachi", "Kolhapur", "Jaipur", "Hyderabad",
-					"Bengal", "Chittagong", "Punjab", "Dacca", "Indus", "Ganges" }),
-			new NationDefinition(8, "", "", "", 0, 0, 0, 36, 36,
-				new string[] {"Salamis", "Lisbon", "Hamburg", "Prague", "Salzburg", "Bergen", "Venice", "Milan", "Ghent", "Pisa",
-					"Cordoba", "Seville", "Dublin", "Toronto", "Melbourne", "Sydney" }),
-			new NationDefinition(9, "Stalin", "Russians", "Russian", 1, 0, -1, 25, 11,
-				new string[] {"Moscow", "Leningrad", "Kiev", "Minsk", "Smolensk", "Odessa", "Sevastopol", "Tblisi", "Sverdlovsk", "Yakutsk",
-					"Vladivostok", "Novograd", "Krasnoyarsk", "Riga", "Rostov", "Astrakhan" }),
-			new NationDefinition(10, "Shaka", "Zulus", "Zulu", 1, 0, 0, 22, 8,
-				new string[] {"Zimbabwe", "Ulundi", "Bapedi", "Hlobane", "Isandhlwana", "Intombe", "Mpondo", "Ngome", "Swazi", "Tugela",
-					"Umtata", "Umfolozi", "Ibabanago", "Isipezi", "Amatikulu", "Zunguin" }),
-			new NationDefinition(11, "Napoleon", "French", "French", 1, 1, 1, 23, 9,
-				new string[] {"Paris", "Orleans", "Lyons", "Tours", "Chartres", "Bordeaux", "Rouen", "Avignon", "Marseilles", "Grenoble",
-					"Dijon", "Amiens", "Cherbourg", "Poitiers", "Toulouse", "Bayonne" }),
-			new NationDefinition(12, "Montezuma", "Aztecs", "Aztec", 0, -1, 1, 20, 6,
-				new string[] {"Tenochtitlan", "Chiauhtia", "Chapultepec", "Coatepec", "Ayotzinco", "Itzapalapa", "Iztapam", "Mitxcoac", "Tacubaya", "Tecamac",
-					"Tepezinco", "Ticoman", "Tlaxcala", "Xaltocan", "Xicalango", "Zumpanco" }),
-			new NationDefinition(13, "Mao Tse Tung", "Chinese", "Chinese", 0, 0, 1, 29, 15,
-				new string[] {"Peking", "Shanghai", "Canton", "Nanking", "Tsingtao", "Hangchow", "Tientsin", "Tatung", "Macao", "Anyang",
-					"Shantung", "Chinan", "Kaifeng", "Ningpo", "Paoting", "Yangchow" }),
-			new NationDefinition(14, "Elizabeth I", "English", "English", 0, 1, 0, 27, 13,
-				new string[] {"London", "Coventry", "Birmingham", "Dover", "Nottingham", "York", "Liverpool", "Brighton", "Oxford", "Reading",
-					"Exeter", "Cambridge", "Hastings", "Canterbury", "Banbury", "Newcastle" }),
-			new NationDefinition(15, "Genghis Khan", "Mongols", "Mongol", 1, 1, -1, 30, 16,
-				new string[] {"Samarkand", "Bokhara", "Nishapur", "Karakorum", "Kashgar", "Tabriz", "Aleppo", "Kabul", "Ormuz", "Basra",
-					"Khanbalyk", "Khorasan", "Shangtu", "Kazan", "Quinsay", "Kerman" })};
+		// Nations: IDs 0 and 8 are fixed barbarian factions; IDs 1-7 and 9-15 are drawn
+		// from the configurable pool in server/Data/Nations.json (see NationPool) and
+		// reshuffled per game via ShuffleNations(RandomSeed) — see that method's callers
+		// for why the seed (not a fresh Random) drives the draw.
+		private NationDefinition[] nationTypes = NationPool.BuildNations(0);
 
 		// Continents
 		public short[] PerContinentSizeAndPerOceanSize = new short[128];
@@ -483,6 +438,44 @@ namespace OpenCivOne
 		public NationDefinition[] Nations
 		{
 			get => this.nationTypes;
+		}
+
+		// Redraws nation IDs 1-7 and 9-15 from the Nations.json pool. Must be called
+		// after RandomSeed is set for a new game (GameTools.F0_2dc4_0042_Randomize) and
+		// after it's restored from a save file (GameLoadAndSave), so the draw is
+		// reproducible: save files only persist RandomSeed and each player's
+		// NationalityID, not the nation names/cities themselves.
+		public void ShuffleNations(int seed)
+		{
+			this.nationTypes = NationPool.BuildNations(seed);
+			RebuildCityNames();
+		}
+
+		// CityNames is a separate flat array (256 = 16 nations x 16 names) that new-city
+		// naming reads by a NationalityID-derived block offset (Overlay_20.cs
+		// F20_0000_0000, ~line 57: blockIndex = NationalityID - 1, minus 1 more if
+		// NationalityID >= 8, then *16). That formula only ever produces 0-13 for real
+		// civs (IDs 1-7 -> 0-6, IDs 9-15 -> 7-13) and never touches IDs 0 or 8 -- which is
+		// why the original hardcoded array packs the 14 real civs' blocks first,
+		// consecutively, then appends Barbarian (ID 0) and the ID-8 placeholder at the
+		// end (blocks 14-15), instead of following raw nation-ID order. RebuildCityNames
+		// must match that exact layout, not nationTypes[0..15] order, or the blockIndex
+		// formula lands on the wrong nation's block.
+		private void RebuildCityNames()
+		{
+			var names = new List<string>(256);
+			void AddBlock(NationDefinition nation)
+			{
+				foreach (var city in nation.Cities)
+					names.Add(city.PadRight(12) + "\0");
+			}
+
+			for (int id = 1; id <= 7; id++) AddBlock(this.nationTypes[id]);
+			for (int id = 9; id <= 15; id++) AddBlock(this.nationTypes[id]);
+			AddBlock(this.nationTypes[0]);
+			AddBlock(this.nationTypes[8]);
+
+			this.CityNames = names.ToArray();
 		}
 
 		public TerrainDefinition[] Terrains
