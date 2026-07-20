@@ -90,7 +90,7 @@ body, #app {
 }
 #btn-newgame:hover { background: #502020; }
 
-#btn-savegame, #btn-loadgame {
+#btn-savegame, #btn-loadgame, #btn-mapeditor {
   width: 100%;
   background: #201830;
   color: #c0a0ff;
@@ -100,7 +100,7 @@ body, #app {
   font-family: monospace;
   margin-top: 4px;
 }
-#btn-savegame:hover, #btn-loadgame:hover { background: #302050; }
+#btn-savegame:hover, #btn-loadgame:hover, #btn-mapeditor:hover { background: #302050; }
 
 #saveload-modal .modal-box { width: 320px; }
 .saveload-slot {
@@ -423,4 +423,74 @@ body, #app {
   font-size: 11px;
   word-break: break-word;
   white-space: pre-line;
+}
+
+/* --- Map editor ------------------------------------------------------ */
+#btn-back-to-game {
+  color: #f0c040;
+  text-decoration: none;
+  border: 1px solid #8b6914;
+  padding: 4px 8px;
+}
+#btn-back-to-game:hover { background: #4a3010; }
+#editor-map-name { color: #c0a060; }
+
+#file-panel button {
+  width: 100%;
+  background: #201830;
+  color: #c0a0ff;
+  border: 1px solid #503080;
+  padding: 4px;
+  cursor: pointer;
+  font-family: monospace;
+  margin-top: 4px;
+}
+#file-panel button:hover { background: #302050; }
+
+#brush-list, #terrain-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.palette-btn {
+  background: #171310;
+  color: #d8c090;
+  border: 1px solid #2a2010;
+  padding: 6px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 12px;
+}
+.palette-btn:hover { background: #221c14; }
+.palette-btn.selected { border-color: #f0c040; background: #2a2010; color: #f0c040; }
+
+.brush-btn { text-align: center; }
+
+.terrain-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+}
+.terrain-swatch {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  background: #001030;
+  border: 1px solid #4a3010;
+  overflow: hidden;
+}
+.terrain-swatch img { width: 100%; height: 100%; object-fit: cover; }
+
+.modal-box input[type="text"] {
+  background: #2a2010;
+  color: #f0c040;
+  border: 1px solid #5a4020;
+  padding: 4px;
+  font-family: monospace;
+}
+
+#open-map-list {
+  max-height: 300px;
+  overflow-y: auto;
 }

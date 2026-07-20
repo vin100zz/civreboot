@@ -713,6 +713,10 @@ document.getElementById('btn-newgame').addEventListener('click', () => {
   newGameModal.style.display = 'flex';
 });
 
+document.getElementById('btn-mapeditor').addEventListener('click', () => {
+  window.location.href = 'editor.html';
+});
+
 document.getElementById('ng-cancel').addEventListener('click', () => {
   newGameModal.style.display = 'none';
 });

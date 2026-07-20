@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Map Editor — reboot2</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="topbar">
+      <a id="btn-back-to-game" href="index.html">◀ Back to game</a>
+      <span id="editor-map-name">New map</span>
+    </div>
+
+    <div id="main">
+      <canvas id="map-canvas"></canvas>
+      <div id="sidebar">
+        <div id="file-panel">
+          <h3>Map</h3>
+          <button id="btn-new-map">New</button>
+          <button id="btn-open-map">Open…</button>
+          <button id="btn-save-map">Save</button>
+          <button id="btn-saveas-map">Save As…</button>
+        </div>
+
+        <div id="brush-panel">
+          <h3>Brush</h3>
+          <div id="brush-list"></div>
+        </div>
+
+        <div id="terrain-panel">
+          <h3>Terrain</h3>
+          <div id="terrain-list"></div>
+        </div>
+
+        <div id="status-panel">
+          <div id="status-msg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="open-modal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <h3>Open Map</h3>
+      <div id="open-map-list"></div>
+      <div class="modal-actions">
+        <button id="open-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="saveas-modal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <h3>Save Map As</h3>
+      <label for="saveas-name">Name</label>
+      <input type="text" id="saveas-name" autocomplete="off">
+      <div class="modal-actions">
+        <button id="saveas-cancel">Cancel</button>
+        <button id="saveas-confirm">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/renderer.js"></script>
+  <script src="js/editor.js"></script>
+</body>
+</html>

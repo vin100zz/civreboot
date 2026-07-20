@@ -108,4 +108,37 @@ app.MapPost("/api/newgame", async (GameServer gs, HttpContext ctx) =>
 app.MapGet("/api/maps", () =>
     Results.Json(OpenCivOne.Server.Maps.CustomMapFormat.ListMaps()));
 
+app.MapGet("/api/maps/{name}", (string name) =>
+{
+    try
+    {
+        return Results.Text(OpenCivOne.Server.Maps.CustomMapFormat.LoadRawText(name), "application/json");
+    }
+    catch (FileNotFoundException)
+    {
+        return Results.NotFound();
+    }
+});
+
+app.MapPost("/api/maps", async (HttpContext ctx) =>
+{
+    using var reader = new StreamReader(ctx.Request.Body);
+    var body = await reader.ReadToEndAsync();
+    using var doc = JsonDocument.Parse(body);
+    string? name = doc.RootElement.TryGetProperty("name", out var n) ? n.GetString() : null;
+
+    if (string.IsNullOrWhiteSpace(name))
+        return Results.BadRequest("Map \"name\" is required.");
+
+    try
+    {
+        OpenCivOne.Server.Maps.CustomMapFormat.Save(name, body);
+        return Results.Ok();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+
 app.Run();

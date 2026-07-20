@@ -136,5 +136,41 @@ namespace OpenCivOne.Server.Maps
             }
             return rows;
         }
+
+        // Reads a map file's raw JSON text as-is, for the in-browser map editor — the
+        // on-disk shape ({name, rows, startPositions}) already is what the editor needs
+        // over the wire, so there's nothing to parse here.
+        public static string LoadRawText(string mapName)
+        {
+            string path = Path.Combine(MapsDir(), mapName + ".json");
+            if (!File.Exists(path))
+                throw new FileNotFoundException($"Custom map '{mapName}' not found at {path}");
+            return File.ReadAllText(path);
+        }
+
+        // Only characters valid in a Windows/Unix filename, so a map name can't escape
+        // the Maps directory or collide with reserved paths.
+        private static readonly char[] InvalidMapNameChars = { '/', '\\', ':', '*', '?', '"', '<', '>', '|', '\0' };
+
+        public static bool IsValidMapName(string mapName) =>
+            !string.IsNullOrWhiteSpace(mapName) &&
+            mapName != "." && mapName != ".." &&
+            mapName.IndexOfAny(InvalidMapNameChars) == -1;
+
+        // Writes a map editor save: rawJsonBody is the client's {name, rows,
+        // startPositions} object, already in the on-disk format — just re-serialized
+        // indented (matching the hand-written maps' formatting) and written as-is.
+        public static void Save(string mapName, string rawJsonBody)
+        {
+            if (!IsValidMapName(mapName))
+                throw new ArgumentException($"Invalid map name: '{mapName}'");
+
+            using var doc = JsonDocument.Parse(rawJsonBody);
+            string json = JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+
+            string dir = MapsDir();
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, mapName + ".json"), json);
+        }
     }
 }
