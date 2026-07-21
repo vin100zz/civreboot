@@ -494,3 +494,20 @@ body, #app {
   max-height: 300px;
   overflow-y: auto;
 }
+
+#humanstart-info {
+  color: #a0e0a0;
+  margin-bottom: 6px;
+}
+#btn-set-humanstart, #btn-clear-humanstart {
+  width: 100%;
+  background: #102010;
+  color: #80ff80;
+  border: 1px solid #308030;
+  padding: 4px;
+  cursor: pointer;
+  font-family: monospace;
+  margin-top: 4px;
+}
+#btn-set-humanstart:hover, #btn-clear-humanstart:hover { background: #204020; }
+#btn-set-humanstart.armed { background: #402010; color: #f0c040; border-color: #8b6914; }

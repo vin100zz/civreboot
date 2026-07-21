@@ -12,7 +12,8 @@
 //     "startPositions": {
 //       "Roman": [36, 19],
 //       "Egyptian": [41, 24]
-//     }
+//     },
+//     "humanStartPosition": [40, 20]
 //   }
 //
 // Each character is one map tile (row 0 = top/north, column 0 = west edge):
@@ -29,13 +30,21 @@
 // real-world start tile for "EARTH" games (StartGameMenu.cs ~line 543).
 // Any nationality NOT listed just uses the normal random site-search — you don't have
 // to specify all of them.
+//
+// humanStartPosition is optional and pins the human player's own start tile,
+// independent of which nationality they end up as (that's only decided at
+// game-start time) — it takes priority over startPositions for the human only.
 using System.Text.Json;
 
 namespace OpenCivOne.Server.Maps
 {
     // Grid: terrain per [x, y] cell. StartPositions: nationality name (case-insensitive)
     // -> start tile, for nations explicitly placed by the map; others use random search.
-    public record CustomMapData(TerrainTypeEnum[,] Grid, IReadOnlyDictionary<string, (int X, int Y)> StartPositions);
+    // HumanStartPosition: the human player's own start tile, regardless of nationality.
+    public record CustomMapData(
+        TerrainTypeEnum[,] Grid,
+        IReadOnlyDictionary<string, (int X, int Y)> StartPositions,
+        (int X, int Y)? HumanStartPosition);
 
     public static class CustomMapFormat
     {
@@ -116,7 +125,15 @@ namespace OpenCivOne.Server.Maps
                 }
             }
 
-            return new CustomMapData(grid, startPositions);
+            (int X, int Y)? humanStartPosition = null;
+            if (doc.RootElement.TryGetProperty("humanStartPosition", out var hp) && hp.ValueKind == JsonValueKind.Array)
+            {
+                var coords = hp.EnumerateArray().Select(e => e.GetInt32()).ToArray();
+                if (coords.Length == 2)
+                    humanStartPosition = (coords[0], coords[1]);
+            }
+
+            return new CustomMapData(grid, startPositions, humanStartPosition);
         }
 
         // Converts a live terrain grid back to row strings, for saving/exporting a map

@@ -60,7 +60,12 @@ namespace OpenCivOne.Server
                 {
                     _game.CustomMapStartPositionsByName[kv.Key] = new GPoint(kv.Value.X, kv.Value.Y);
                 }
-                Console.WriteLine($"[Map] Carte personnalisée chargée : {opts.CustomMap} ({_game.CustomMapStartPositionsByName.Count} position(s) de départ définies)");
+                if (mapData.HumanStartPosition is (int hx, int hy))
+                {
+                    _game.CustomMapHumanStartPosition = new GPoint(hx, hy);
+                }
+                Console.WriteLine($"[Map] Carte personnalisée chargée : {opts.CustomMap} ({_game.CustomMapStartPositionsByName.Count} position(s) de départ définies" +
+                    $"{(_game.CustomMapHumanStartPosition is not null ? ", position humaine définie" : "")})");
             }
 
             // Force LandMass/Age (et EarthMap) avant que GenerateMap() soit appelé.

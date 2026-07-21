@@ -548,7 +548,15 @@ namespace OpenCivOne
 						// rest, fall through and keep whatever the random site-search above found.
 						int nationalityID = this.parent.GameData.Players[playerID].NationalityID;
 						GPoint? startPos;
-						if (this.parent.CustomMapGrid != null)
+						if (playerID == this.parent.GameData.HumanPlayerID && this.parent.CustomMapHumanStartPosition is not null)
+						{
+							// The map editor lets the user pin the human player's own start
+							// tile independent of nationality (which nation the human ends up
+							// as is only decided at this same game-start step) — this takes
+							// priority over any per-nationality position for the human only.
+							startPos = this.parent.CustomMapHumanStartPosition;
+						}
+						else if (this.parent.CustomMapGrid != null)
 						{
 							string nationality = this.parent.GameData.Nations[nationalityID].Nationality;
 							startPos = this.parent.CustomMapStartPositionsByName.TryGetValue(nationality, out var pos) ? pos : null;

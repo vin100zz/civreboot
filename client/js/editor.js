@@ -48,6 +48,8 @@ const BRUSHES = [
 // --- Editor state -----------------------------------------------------
 let grid = makeBlankGrid();
 let startPositions = {};
+let humanStartPosition = null; // {x, y} or null — the human player's own start tile
+let placingHumanStart = false; // true while armed, waiting for the next Shift+click
 let currentMapName = null; // null = unsaved new map
 let selectedBrush = BRUSHES[0];
 let selectedTerrain = TERRAIN_TYPES[10]; // Water
@@ -84,6 +86,38 @@ function redraw() {
   });
 }
 
+// Draws the human-start marker on top of whatever MapRenderer most recently
+// rendered. Runs as its own perpetual rAF loop (rather than right after
+// redraw()) because MapRenderer also re-renders on its own for pan/zoom,
+// which would otherwise wipe the marker until the next terrain edit.
+function drawHumanStartMarker() {
+  if (!humanStartPosition) return;
+  const ts = renderer.tileSize;
+  const px = renderer._screenX(humanStartPosition.x);
+  const py = renderer._screenY(humanStartPosition.y);
+  if (px < -ts || px > canvas.width || py < -ts || py > canvas.height) return;
+
+  const ctx = renderer.ctx;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(px + ts / 2, py + ts / 2, ts / 3, 0, Math.PI * 2);
+  ctx.fillStyle = '#40ff40';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#000';
+  ctx.stroke();
+  ctx.fillStyle = '#000';
+  ctx.font = `bold ${Math.max(10, ts * 0.45)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('H', px + ts / 2, py + ts / 2 + 1);
+  ctx.restore();
+}
+(function overlayLoop() {
+  drawHumanStartMarker();
+  requestAnimationFrame(overlayLoop);
+})();
+
 // Plain click/drag pans the map (MapRenderer's own built-in behavior, left
 // untouched). Shift+click or Shift+drag paints instead. A window-level
 // *capturing* mousedown listener runs before MapRenderer's own (bubble-phase)
@@ -95,8 +129,12 @@ window.addEventListener('mousedown', e => {
   if (e.button !== 0 || !e.shiftKey || e.target !== canvas) return;
   e.preventDefault();
   e.stopPropagation();
-  shiftPainting = true;
   const tile = renderer.clickToTile(e.clientX, e.clientY);
+  if (placingHumanStart) {
+    setHumanStart(tile.x, tile.y); // one-shot placement, not a drag brush
+    return;
+  }
+  shiftPainting = true;
   paintAt(tile.x, tile.y);
 }, { capture: true });
 
@@ -119,6 +157,38 @@ function paintAt(x, y) {
   }
   redraw();
 }
+
+// --- Human start position --------------------------------------------------
+function updateHumanStartUI() {
+  document.getElementById('humanstart-info').textContent =
+    humanStartPosition ? `(${humanStartPosition.x}, ${humanStartPosition.y})` : 'Not set';
+  document.getElementById('btn-clear-humanstart').style.display = humanStartPosition ? '' : 'none';
+  const setBtn = document.getElementById('btn-set-humanstart');
+  setBtn.classList.toggle('armed', placingHumanStart);
+  setBtn.textContent = placingHumanStart ? 'Shift+click the map…' : '🏠 Set Start (Shift+click map)';
+}
+
+function setHumanStart(x, y) {
+  humanStartPosition = { x, y };
+  placingHumanStart = false;
+  updateHumanStartUI();
+  setStatus(`Human start position set at (${x}, ${y}).`);
+}
+
+document.getElementById('btn-set-humanstart').addEventListener('click', () => {
+  placingHumanStart = !placingHumanStart;
+  updateHumanStartUI();
+  setStatus(placingHumanStart
+    ? 'Shift+click a tile to place the human start position.'
+    : 'Cancelled placing the human start position.');
+});
+
+document.getElementById('btn-clear-humanstart').addEventListener('click', () => {
+  humanStartPosition = null;
+  placingHumanStart = false;
+  updateHumanStartUI();
+  setStatus('Human start position cleared.');
+});
 
 // --- Brush palette --------------------------------------------------
 const brushList = document.getElementById('brush-list');
@@ -186,8 +256,11 @@ function gridToRows() {
 document.getElementById('btn-new-map').addEventListener('click', () => {
   grid = makeBlankGrid();
   startPositions = {};
+  humanStartPosition = null;
+  placingHumanStart = false;
   currentMapName = null;
   setMapNameDisplay();
+  updateHumanStartUI();
   redraw();
   setStatus('New blank map.');
 });
@@ -225,8 +298,13 @@ async function openMap(name) {
   const data = await res.json();
   grid = rowsToGrid(data.rows || []);
   startPositions = data.startPositions || {};
+  humanStartPosition = Array.isArray(data.humanStartPosition)
+    ? { x: data.humanStartPosition[0], y: data.humanStartPosition[1] }
+    : null;
+  placingHumanStart = false;
   currentMapName = name;
   setMapNameDisplay();
+  updateHumanStartUI();
   redraw();
   openModal.style.display = 'none';
   setStatus(`Opened "${name}".`);
@@ -236,7 +314,12 @@ async function saveMapAs(name) {
   const res = await fetch('/api/maps', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, rows: gridToRows(), startPositions }),
+    body: JSON.stringify({
+      name,
+      rows: gridToRows(),
+      startPositions,
+      humanStartPosition: humanStartPosition ? [humanStartPosition.x, humanStartPosition.y] : undefined,
+    }),
   });
   if (!res.ok) {
     setStatus(`Save failed: ${await res.text()}`);
@@ -284,5 +367,6 @@ saveAsInput.addEventListener('keydown', e => {
 
 // --- Init --------------------------------------------------
 setMapNameDisplay();
+updateHumanStartUI();
 redraw();
 setStatus('New blank map. Pick a brush and terrain, then Shift+click (or Shift+drag) to paint. Click/drag without Shift scrolls the map.');

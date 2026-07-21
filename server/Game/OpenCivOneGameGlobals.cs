@@ -220,6 +220,14 @@ namespace OpenCivOne
 		// keeps the normal random placement. Populated from CustomMapData.StartPositions
 		// in GameSession.cs.
 		public Dictionary<string, GPoint> CustomMapStartPositionsByName = new(StringComparer.OrdinalIgnoreCase);
+
+		// Not part of the original game: the human player's own start tile, set by the
+		// map editor independent of nationality (unlike CustomMapStartPositionsByName,
+		// this doesn't need to know which nation the human becomes — see
+		// StartGameMenu.cs's site-search override, which checks this before the
+		// per-nationality dictionary). Populated from CustomMapData.HumanStartPosition
+		// in GameSession.cs; null if the map doesn't pin one.
+		public GPoint? CustomMapHumanStartPosition = null;
 		public int Var_deba = 0;
 		public int Var_d7f0 = 0;
 		public bool Var_d806_DebugFlag = false;
